@@ -1,0 +1,24 @@
+{
+ "task": "cord",
+ "model": "microsoft/layoutlmv3-large",
+ "steps": 1000,
+ "lr": 2e-05,
+ "batch_size": 4,
+ "seeds": [
+  1,
+  2,
+  3,
+  4,
+  5
+ ],
+ "f1": [
+  0.9532,
+  0.9547,
+  0.9646,
+  0.9517,
+  0.9573
+ ],
+ "mean": 0.9563,
+ "std": 0.0051,
+ "minutes": 95.4
+}

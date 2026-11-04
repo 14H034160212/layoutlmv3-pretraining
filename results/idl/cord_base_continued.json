@@ -1,0 +1,24 @@
+{
+ "task": "cord",
+ "model": "runs/idl_dalle_base/backbone",
+ "steps": 1000,
+ "lr": 5e-05,
+ "batch_size": 4,
+ "seeds": [
+  1,
+  2,
+  3,
+  4,
+  5
+ ],
+ "f1": [
+  0.939,
+  0.9326,
+  0.9412,
+  0.9413,
+  0.9322
+ ],
+ "mean": 0.9373,
+ "std": 0.0045,
+ "minutes": 14.3
+}

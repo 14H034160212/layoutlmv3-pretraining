@@ -1,7 +1,7 @@
 """DALL-E dVAE image tokenizer (8192 visual tokens), as used for BEiT v1's MIM targets.
 
 The encoder architecture below re-implements OpenAI's ``dall_e`` encoder
-(https://github.com/openai/DALL-E, MIT licence) with identical parameter names,
+(https://github.com/openai/DALL-E, modified MIT licence, notice below) with identical parameter names,
 so the public ``encoder.pkl`` weights load into it. We do not depend on the
 ``dall_e`` package itself: ``encoder.pkl`` is a pickled ``dall_e.encoder.Encoder``
 object, and ``load_dalle_encoder`` unpickles it with a restricted unpickler that
@@ -13,6 +13,29 @@ down-sampling gives a 14x14 token grid, one token per LayoutLMv3 16x16 patch.
 Note: this dVAE was trained by OpenAI on natural images, not documents. The
 LayoutLMv3 paper used a document-trained dVAE from DiT, whose weights are not
 released with LayoutLMv3.
+
+The encoder architecture is adapted from openai/DALL-E, distributed under this
+licence notice:
+
+    Modified MIT License
+    Software Copyright (c) 2021 OpenAI
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions: The above copyright
+    notice and this permission notice shall be included in all copies or
+    substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+    SOFTWARE.
 """
 
 from __future__ import annotations
