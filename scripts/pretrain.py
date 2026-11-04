@@ -144,7 +144,17 @@ def main():
     ap.add_argument("--max_steps", type=int, default=2000, help="optimiser steps")
     ap.add_argument("--batch_size", type=int, default=8, help="per forward pass")
     ap.add_argument("--grad_accum", type=int, default=1)
-    ap.add_argument("--lr", type=float, default=5e-5)
+    ap.add_argument("--lr", type=float, default=5e-5, help="peak learning rate of the top encoder layer")
+    ap.add_argument("--layer_decay", type=float, default=1.0,
+                    help="layer-wise lr decay: layer i gets lr * decay ** (L - i), embeddings lr * decay ** (L + 1)")
+    ap.add_argument("--new_params_lr", type=float, default=None,
+                    help="lr of the heads and image [MASK] token after warm-up (default: --lr)")
+    ap.add_argument("--head_warmup_steps", type=int, default=0,
+                    help="optimiser steps that train only the new parameters (heads, image [MASK] token) "
+                         "with the encoder frozen, before joint training; not counted in --max_steps")
+    ap.add_argument("--head_lr", type=float, default=1e-3, help="peak lr during the head warm-up (cosine)")
+    ap.add_argument("--random_init", action="store_true",
+                    help="control: use --model's config but random weights (pre-training from scratch)")
     ap.add_argument("--warmup_ratio", type=float, default=0.05)
     ap.add_argument("--gradient_checkpointing", action="store_true")
     ap.add_argument("--num_workers", type=int, default=0)
@@ -173,7 +183,10 @@ def main():
     (out_dir / "run_info.json").write_text(json.dumps(info, indent=1))
     print(json.dumps(info), flush=True)
 
-    model = LayoutLMv3ForPreTraining.from_backbone(a.model, img_tok.vocab_size).to(device)
+    model = LayoutLMv3ForPreTraining.from_backbone(a.model, img_tok.vocab_size, random_init=a.random_init).to(device)
+    info["loading_info"] = model.loading_info
+    print(json.dumps({"loading_info": model.loading_info}), flush=True)
+    (out_dir / "run_info.json").write_text(json.dumps(info, indent=1))
     if a.gradient_checkpointing:
         model.gradient_checkpointing_enable(gradient_checkpointing_kwargs={"use_reentrant": False})
     collate = PretrainingCollator(processor.tokenizer, None, seed=a.seed)
@@ -184,10 +197,27 @@ def main():
     # validation masks are drawn once, so every evaluation (and the best-checkpoint choice) uses the same ones
     val_collate = PretrainingCollator(processor.tokenizer, None, seed=0)
     val_batches = [val_collate(val[i:i + a.batch_size]) for i in range(0, len(val), a.batch_size)]
-    opt = torch.optim.AdamW(model.parameters(), lr=a.lr, weight_decay=0.01)
-    sched = get_cosine_schedule_with_warmup(opt, int(a.warmup_ratio * a.max_steps), a.max_steps)
 
-    log = [{"step": 0, **evaluate(model, val_batches, device, img_tok)}]
+    def joint_optimiser():
+        model.set_encoder_trainable(True)
+        groups = model.layerwise_param_groups(a.lr, a.layer_decay, weight_decay=0.01,
+                                              new_lr=a.new_params_lr)
+        opt = torch.optim.AdamW(groups, lr=a.lr)
+        return opt, get_cosine_schedule_with_warmup(opt, int(a.warmup_ratio * a.max_steps), a.max_steps)
+
+    warmup = a.head_warmup_steps
+    if warmup:  # phase 1: heads only, encoder frozen
+        model.set_encoder_trainable(False)
+        opt = torch.optim.AdamW(model.new_parameters().values(), lr=a.head_lr, weight_decay=0.01)
+        sched = get_cosine_schedule_with_warmup(opt, int(0.1 * warmup), warmup)
+        enc_before = {n: p.detach().cpu().clone() for n, p in model.named_parameters()
+                      if n not in model.new_parameters()}
+    else:
+        opt, sched = joint_optimiser()
+    total_steps = warmup + a.max_steps
+
+    log = [{"step": 0, "phase": "head_warmup" if warmup else "joint",
+            **evaluate(model, val_batches, device, img_tok)}]
     print(json.dumps(log[-1]), flush=True)
     best, bad_evals, step, micro, t0 = float("inf"), 0, 0, 0, time.time()
     done = False
@@ -200,11 +230,16 @@ def main():
             micro += 1
             if micro % a.grad_accum:
                 continue
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+            torch.nn.utils.clip_grad_norm_([p for p in model.parameters() if p.requires_grad], 1.0)
             opt.step(); sched.step(); opt.zero_grad(set_to_none=True)
             step += 1
-            if step % a.eval_every == 0 or step == a.max_steps:
+            in_warmup = step <= warmup
+            if step % a.eval_every == 0 or step == warmup or step == total_steps:
                 ev = evaluate(model, val_batches, device, img_tok)
+                if step == warmup:
+                    ev["encoder_max_abs_change"] = max(
+                        (p.detach().cpu() - enc_before[n]).abs().max().item()
+                        for n, p in model.named_parameters() if n in enc_before)
                 improved = ev["loss"] < best
                 if improved:
                     best, bad_evals = ev["loss"], 0
@@ -213,22 +248,33 @@ def main():
                                out_dir / "pretraining_heads.pt")
                 else:
                     bad_evals += 1
-                log.append({"step": step, "train_loss": round(out.loss.item(), 4), **ev, "best": improved,
+                log.append({"step": step, "phase": "head_warmup" if in_warmup else "joint",
+                            "train_loss": round(out.loss.item(), 4), **ev, "best": improved,
                             "pages_seen": step * a.batch_size * a.grad_accum,
                             "minutes": round((time.time() - t0) / 60, 1)})
                 print(json.dumps(log[-1]), flush=True)
                 (out_dir / "log.json").write_text(json.dumps(log, indent=1))
-                if a.patience and bad_evals >= a.patience:
+                if step == warmup:
+                    save_backbone(model, processor, out_dir / "warmup_backbone")
+                    torch.save({k: v for k, v in model.state_dict().items() if not k.startswith("layoutlmv3.")}
+                               | {"layoutlmv3.image_mask_token": model.layoutlmv3.image_mask_token.detach()},
+                               out_dir / "warmup_heads.pt")
+                    best, bad_evals = float("inf"), 0       # select the checkpoint among joint steps only
+                if a.patience and not in_warmup and bad_evals >= a.patience:
                     print(f"early stop: no improvement in {a.patience} evaluations", flush=True)
                     done = True
-            if step >= a.max_steps:
+            if step == warmup:                       # phase 2: joint training
+                opt, sched = joint_optimiser()
+                micro = 0
+            if step >= total_steps:
                 done = True
             if done:
                 break
 
     if a.save_last:
         save_backbone(model, processor, out_dir / "last_backbone")
-    best_step = min((r for r in log[1:]), key=lambda r: r["loss"])["step"] if len(log) > 1 else 0
+    joint = [r for r in log[1:] if r["phase"] == "joint"]
+    best_step = min(joint, key=lambda r: r["loss"])["step"] if joint else 0
     print(f"best validation loss {best:.4f} at step {best_step}; saved to {out_dir / 'backbone'}", flush=True)
 
 

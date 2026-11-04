@@ -230,3 +230,62 @@ def test_from_backbone_sizes_heads_from_config(tmp_path, hidden, layers, heads, 
     assert len(model.layoutlmv3.encoder.layer) == layers
     out = model(**tiny_batch(k=8192))
     assert out.mim_logits.shape == (2, 196, 8192) and torch.isfinite(out.loss)
+
+
+# ------------------------------------------------------------------ head warm-up
+
+def test_new_parameters_are_heads_and_image_mask_token_only():
+    model = LayoutLMv3ForPreTraining(tiny_config(), image_vocab_size=8)
+    names = set(model.new_parameters())
+    assert "layoutlmv3.image_mask_token" in names
+    assert all(n.startswith(("mlm_head.", "mim_head.", "wpa_head.")) for n in names - {"layoutlmv3.image_mask_token"})
+    assert "mlm_head.decoder.bias" in names
+    # the tied decoder weight is the word embedding matrix, i.e. an encoder parameter
+    assert not any(p is model.layoutlmv3.embeddings.word_embeddings.weight for p in model.new_parameters().values())
+
+
+def test_head_warmup_freezes_encoder_and_trains_heads():
+    """With the encoder frozen, an optimiser step changes the new parameters and nothing else."""
+    torch.manual_seed(0)
+    model = LayoutLMv3ForPreTraining(tiny_config(), image_vocab_size=8)
+    model.set_encoder_trainable(False)
+    new = model.new_parameters()
+    assert all(p.requires_grad == (n in new) for n, p in model.named_parameters())
+    before = {n: p.detach().clone() for n, p in model.named_parameters()}
+    opt = torch.optim.AdamW(new.values(), lr=1e-2, weight_decay=0.01)
+    model(**tiny_batch()).loss.backward()
+    assert all(p.grad is None for n, p in model.named_parameters() if n not in new)
+    opt.step()
+    for n, p in model.named_parameters():
+        changed = not torch.equal(p, before[n])
+        assert changed == (n in new), n
+    model.set_encoder_trainable(True)
+    assert all(p.requires_grad for p in model.parameters())
+
+
+def test_layerwise_param_groups():
+    model = LayoutLMv3ForPreTraining(tiny_config(), image_vocab_size=8)   # 2 layers -> depths 0..3
+    groups = model.layerwise_param_groups(1e-4, layer_decay=0.5, new_lr=1e-3)
+    by_name = {n: g["lr"] for g in groups for n in g["names"]}
+    assert len(by_name) == sum(1 for _ in model.parameters())             # every parameter exactly once
+    assert by_name["layoutlmv3.embeddings.word_embeddings.weight"] == pytest.approx(1e-4 * 0.5 ** 3)
+    assert by_name["layoutlmv3.patch_embed.proj.weight"] == pytest.approx(1e-4 * 0.5 ** 3)
+    assert by_name["layoutlmv3.encoder.layer.0.attention.self.query.weight"] == pytest.approx(1e-4 * 0.5 ** 2)
+    assert by_name["layoutlmv3.encoder.layer.1.output.dense.weight"] == pytest.approx(1e-4 * 0.5)
+    assert by_name["layoutlmv3.encoder.rel_pos_bias.weight"] == pytest.approx(1e-4)
+    assert by_name["mim_head.1.weight"] == by_name["layoutlmv3.image_mask_token"] == pytest.approx(1e-3)
+    no_override = {n: g["lr"] for g in model.layerwise_param_groups(1e-4) for n in g["names"]}
+    assert set(no_override.values()) == {1e-4}
+
+
+def test_from_backbone_random_init_does_not_load_weights(tmp_path):
+    from transformers import LayoutLMv3Model
+    torch.manual_seed(0)
+    LayoutLMv3Model(tiny_config()).save_pretrained(tmp_path)
+    loaded = LayoutLMv3ForPreTraining.from_backbone(str(tmp_path), image_vocab_size=8)
+    assert loaded.loading_info["encoder_keys_not_in_checkpoint"] == ["image_mask_token"]
+    torch.manual_seed(1)
+    scratch = LayoutLMv3ForPreTraining.from_backbone(str(tmp_path), image_vocab_size=8, random_init=True)
+    w = "encoder.layer.0.attention.self.query.weight"
+    assert not torch.equal(loaded.layoutlmv3.state_dict()[w], scratch.layoutlmv3.state_dict()[w])
+    assert scratch.mlm_head.decoder.weight is scratch.layoutlmv3.embeddings.word_embeddings.weight

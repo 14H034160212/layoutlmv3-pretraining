@@ -87,14 +87,74 @@ class LayoutLMv3ForPreTraining(LayoutLMv3PreTrainedModel):
         self.mlm_head.decoder.weight = self.layoutlmv3.embeddings.word_embeddings.weight  # tie
 
     @classmethod
-    def from_backbone(cls, name_or_path: str, image_vocab_size: int = 512) -> "LayoutLMv3ForPreTraining":
-        """Start from a pretrained ``LayoutLMv3Model`` checkpoint (e.g. microsoft/layoutlmv3-base)."""
-        backbone = LayoutLMv3Model.from_pretrained(name_or_path)
+    def from_backbone(cls, name_or_path: str, image_vocab_size: int = 512,
+                      random_init: bool = False) -> "LayoutLMv3ForPreTraining":
+        """Start from a pretrained ``LayoutLMv3Model`` checkpoint (e.g. microsoft/layoutlmv3-base).
+
+        The released checkpoints contain only the encoder, so the MLM/MIM/WPA heads (and the image
+        ``[MASK]`` embedding) are always freshly initialised; only the MLM decoder weight is meaningful,
+        because it is tied to the word embeddings. ``random_init=True`` keeps the checkpoint's config but
+        not its weights (a from-scratch control). ``model.loading_info`` records what was loaded.
+        """
+        if random_init:
+            model = cls(LayoutLMv3Config.from_pretrained(name_or_path), image_vocab_size)
+            model.loading_info = {"random_init": True}
+            return model
+        backbone, info = LayoutLMv3Model.from_pretrained(name_or_path, output_loading_info=True)
+        assert not info["missing_keys"] and not info["unexpected_keys"] and not info["mismatched_keys"], info
         model = cls(backbone.config, image_vocab_size)
         missing, unexpected = model.layoutlmv3.load_state_dict(backbone.state_dict(), strict=False)
         assert set(missing) <= {"image_mask_token"} and not unexpected, (missing, unexpected)
         model.mlm_head.decoder.weight = model.layoutlmv3.embeddings.word_embeddings.weight
+        model.loading_info = {"random_init": False, "checkpoint_missing_keys": info["missing_keys"],
+                              "checkpoint_unexpected_keys": info["unexpected_keys"],
+                              "encoder_keys_loaded": len(backbone.state_dict()),
+                              "encoder_keys_not_in_checkpoint": sorted(missing)}
         return model
+
+    # ---------------------------------------------------------------- parameter groups
+
+    def new_parameters(self) -> dict[str, nn.Parameter]:
+        """Parameters that no released checkpoint provides: the three heads and the image [MASK] token.
+
+        The MLM decoder weight is tied to the word embeddings, so it counts as an encoder parameter.
+        """
+        encoder_ids = {id(p) for n, p in self.layoutlmv3.named_parameters() if n != "image_mask_token"}
+        return {n: p for n, p in self.named_parameters() if id(p) not in encoder_ids}
+
+    def set_encoder_trainable(self, trainable: bool) -> None:
+        """Freeze (or unfreeze) every checkpoint parameter; the new parameters always stay trainable."""
+        new = {id(p) for p in self.new_parameters().values()}
+        for p in self.parameters():
+            p.requires_grad_(trainable or id(p) in new)
+
+    def layer_id(self, name: str) -> int:
+        """BEiT-style depth of a parameter: 0 = embeddings, i + 1 = transformer layer i, L + 1 = top.
+
+        The shared relative-position biases, the heads and the image [MASK] token count as the top.
+        """
+        num_layers = self.config.num_hidden_layers
+        if name.startswith("layoutlmv3.encoder.layer."):
+            return int(name.split(".")[3]) + 1
+        if name.startswith("layoutlmv3.") and not name.startswith(("layoutlmv3.encoder.",
+                                                                   "layoutlmv3.image_mask_token")):
+            return 0                     # text/visual embeddings, patch embedding, cls/pos tokens, input LNs
+        return num_layers + 1
+
+    def layerwise_param_groups(self, lr: float, layer_decay: float = 1.0, weight_decay: float = 0.01,
+                               new_lr: float | None = None) -> list[dict]:
+        """AdamW groups with lr * layer_decay ** (L + 1 - depth); ``new_lr`` overrides it for new parameters."""
+        top = self.config.num_hidden_layers + 1
+        new = {id(p) for p in self.new_parameters().values()}
+        groups: dict[tuple, dict] = {}
+        for name, p in self.named_parameters():
+            is_new = id(p) in new
+            depth = self.layer_id(name)
+            g_lr = new_lr if (is_new and new_lr is not None) else lr * layer_decay ** (top - depth)
+            g = groups.setdefault((depth, is_new), {"params": [], "names": [], "lr": g_lr,
+                                                     "weight_decay": weight_decay})
+            g["params"].append(p); g["names"].append(name)
+        return list(groups.values())
 
     def forward(self, input_ids, bbox, attention_mask, pixel_values, bool_masked_pos=None,
                 mlm_labels=None, mim_labels=None, wpa_labels=None, **_):
