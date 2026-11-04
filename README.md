@@ -67,6 +67,10 @@ So there is **no gain**, which is what you should expect from 129 documents. The
 - `microsoft/layoutlmv3-base` weights are licensed **CC BY-NC-SA 4.0** (non-commercial). Checkpoints produced by continuing to pre-train them inherit that licence. Check it before any commercial use.
 - FUNSD is distributed for non-commercial research use.
 
+## Development note
+
+Written with the help of an AI coding assistant. The design, tests and experiments were reviewed and run by the author, and all numbers above come from the included scripts and `results/` files.
+
 ## Citation
 
 ```bibtex
