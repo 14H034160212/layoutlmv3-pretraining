@@ -1,0 +1,24 @@
+{
+ "task": "cord",
+ "model": "runs/idl_warmup_base_pretrained/backbone",
+ "steps": 1000,
+ "lr": 5e-05,
+ "batch_size": 4,
+ "seeds": [
+  1,
+  2,
+  3,
+  4,
+  5
+ ],
+ "f1": [
+  0.9379,
+  0.9313,
+  0.9289,
+  0.9367,
+  0.9289
+ ],
+ "mean": 0.9327,
+ "std": 0.0043,
+ "minutes": 42.6
+}

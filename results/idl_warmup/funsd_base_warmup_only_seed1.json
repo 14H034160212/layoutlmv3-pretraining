@@ -1,0 +1,16 @@
+{
+ "task": "funsd",
+ "model": "runs/idl_warmup_base_pretrained/warmup_backbone",
+ "steps": 1000,
+ "lr": 1e-05,
+ "batch_size": 2,
+ "seeds": [
+  1
+ ],
+ "f1": [
+  0.8838
+ ],
+ "mean": 0.8838,
+ "std": 0.0,
+ "minutes": 3.7
+}

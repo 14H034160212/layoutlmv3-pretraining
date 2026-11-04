@@ -31,7 +31,7 @@ Any object with `vocab_size` and `encode(pixel_values) -> LongTensor[B, 196]` ca
 
 ```bash
 pip install -e ".[dev]"
-pytest tests                    # 15 tests, CPU, a few seconds (one is skipped without the DALL-E weights)
+pytest tests                    # 29 tests, CPU, ~10 seconds (one is skipped without the DALL-E weights)
 
 # continued pre-training on FUNSD train (words and boxes from the dataset, no OCR), k-means MIM targets
 python scripts/pretrain.py --output_dir runs/funsd_pt --max_steps 3000
@@ -62,6 +62,11 @@ python scripts/finetune_funsd.py --task cord  --model runs/idl_dalle_base/backbo
 | `--num_workers N` | DataLoader worker processes (IDL decoding and masking run there; MIM targets are computed on the GPU) |
 | `--eval_every`, `--patience` | validation on fixed held-out pages with fixed masks; `backbone/` always holds the step with the lowest validation loss, and training stops after `patience` evaluations without improvement |
 | `--save_last` | also keep the final step in `last_backbone/` |
+| `--head_warmup_steps N`, `--head_lr` | first train only the parameters the released checkpoints lack (the three heads and the image `[MASK]` embedding) for `N` steps with the encoder frozen, then train jointly; see [Head warm-up](#head-warm-up-the-released-encoder-starts-from-a-good-point) |
+| `--layer_decay d`, `--new_params_lr` | layer-wise learning-rate decay (BEiT-style: layer *i* of *L* gets `lr * d^(L-i)`, embeddings `lr * d^(L+1)`), and the heads' lr after the warm-up (default `--lr`) |
+| `--wpa_head linear\|mlp\|mlp_patch` | WPA classifier: linear or two-layer MLP on the text token, or two-layer MLP on [text token; mean of the image patches its box covers] |
+| `--random_init` | control: the checkpoint's config with random weights |
+| `--tags ...` | tags for the run registry (see [Run registry](#run-registry)) |
 
 ### The IDL corpus
 
@@ -115,6 +120,60 @@ Per-seed differences (continued minus original), paired by seed: base FUNSD +1.4
 
 Per-seed scores and the pre-training logs are in `results/idl/`.
 
+### Head warm-up: the released encoder starts from a good point
+
+**The problem with the run above.** The released `microsoft/layoutlmv3-{base,large}` checkpoints contain only the encoder (212 `layoutlmv3.*` tensors for base). The MLM head's dense + LayerNorm, the MIM head, the WPA head and the image `[MASK]` embedding are therefore random at step 0 (only the MLM decoder weight is meaningful, because it is tied to the word embeddings). The step-0 validation numbers above (loss 24.8, MLM accuracy 0.00) measure these random heads, not the encoder, and the encoder was then trained jointly with them from step 0 at lr 5e-5 (base) / 3e-5 (large). Random-head gradients could have damaged the pretrained encoder, and the curve looked like training from zero.
+
+**What was changed** (`--head_warmup_steps`, `--head_lr`, `--layer_decay`; `scripts/run_idl_warmup_experiment.sh`):
+
+1. *Loading check.* `from_backbone` now asserts and logs that `LayoutLMv3Model.from_pretrained` reports no missing, unexpected or mismatched keys (true for base: 212 tensors loaded, the only encoder parameter not in the checkpoint is our image `[MASK]` embedding).
+2. *Head warm-up.* 1,000 steps that train only the new parameters (the three heads, the MLM decoder bias, the image `[MASK]` embedding; AdamW, lr 1e-3, cosine with 10% warm-up) with every checkpoint parameter frozen, including the word embeddings and hence the tied MLM decoder weight. The validation loss at the end of the warm-up is the starting point of the released encoder.
+3. *Gentler joint training.* Then 6,000 joint steps (same corpus, batch, schedule shape and step count as the run above) at a peak lr of 2e-5 for the top layer with layer-wise decay 0.9 (BEiT-style; the embeddings get 2e-5 × 0.9¹³ ≈ 5e-6) and 2e-5 for the heads. The aim is to adapt the encoder to the new objectives without moving the lower layers much.
+4. *Control.* The same config with random weights (`--random_init`): the same 1,000 head-only steps, then 6,000 joint steps at lr 1e-4 without layer decay (a from-scratch run needs a higher lr than continued training).
+
+**Validation metrics** (512 held-out IDL pages, fixed masks; base):
+
+| | step 0 | after 1,000 head-only steps (encoder frozen) | end of joint training |
+|---|---|---|---|
+| **released encoder**: loss | 24.78 | 8.57 | **6.77** (step 7,000) |
+| MLM loss / accuracy | 14.78 / 0.000 | **2.79 / 0.511** | 2.61 / 0.534 |
+| MIM loss / accuracy | 9.19 / 0.000 | 5.33 / 0.122 | 4.14 / 0.214 |
+| WPA accuracy | 0.338 | 0.789 | 0.993 |
+| **random encoder** (same config): loss | 20.83 | 16.99 | 12.37 (step 6,750) |
+| MLM loss / accuracy | 10.93 / 0.000 | 9.13 / 0.056 | 6.55 / 0.083 |
+| MIM loss / accuracy | 9.17 / 0.000 | 7.31 / 0.039 | 5.80 / 0.096 |
+| WPA accuracy | 0.489 | 0.745 | 0.994 |
+| *earlier run (joint from step 0, lr 5e-5)*: loss | 24.78 | | 6.95 (step 6,000) |
+| MLM / MIM / WPA accuracy | 0 / 0 / 0.338 | | 0.515 / 0.211 / 0.999 |
+
+![Validation curves](results/idl_warmup/pretrain_curves.png)
+
+*Steps on the x-axis are optimiser steps; the warm-up runs take 1,000 more of them (and see 32k more pages) than the earlier run. Majority-class rates on the validation targets: WPA 0.742 ("aligned"); MIM: the most frequent dVAE token is 3.8% of masked patches.*
+
+**What the warm-up shows, read as a correctness check of this re-implementation.** With the encoder frozen, a freshly initialised head reaches MLM accuracy 0.511 (loss 24.8 → 8.57 overall) in 1,000 steps, against 0.056 for the same head on a random encoder (which is about what predicting frequent tokens gives). A fresh head can only read masked tokens out of the encoder that well if (a) the checkpoint is loaded correctly and (b) the MLM input pipeline here (tokenisation, segment-level 2D layout with 0-1000 boxes, span masking with `<mask>`, the image input) is close to what the encoder saw in pre-training; with mismatched positions, boxes or image normalisation the frozen features would not be readable like this. It does **not** show that this code is equivalent to Microsoft's pre-training code, and it says little about the other two objectives:
+
+- **MIM** is not comparable to the paper: the targets here are tokens of OpenAI's natural-image DALL-E dVAE, not the paper's document dVAE, so the released encoder was never trained to predict them. The frozen encoder still gives 0.122 accuracy versus 0.039 for the random encoder (≈ the 3.8% majority rate), so its patch features carry usable visual information, but the number is a property of our targets.
+- **WPA** after the warm-up is 0.789 with the frozen encoder versus a majority baseline of 0.742 (random encoder: 0.745, i.e. at baseline). A linear head on the text token reads some alignment information from the frozen encoder, but only modestly above the baseline. It shows that the signal is there, not that our WPA formulation matches the paper's. After joint training WPA is near 0.99 for both encoders (the random one included), which again says that WPA is close to trivial here once the encoder can learn to spot the `[MASK]` patch embedding.
+
+Notably, the earlier run's *final* MLM accuracy (0.515 after 6,000 joint steps) is barely above what the frozen released encoder gives after the 1,000-step head warm-up (0.511). Most of what the earlier MLM curve showed was the head being learned, not the encoder improving.
+
+**Sanity check: the warm-up leaves the encoder unchanged.** The maximum absolute change of every checkpoint parameter over the warm-up is 0.0 (logged), the saved `warmup_backbone/` is bit-identical to `microsoft/layoutlmv3-base` (212 tensors, `scripts/compare_results.py --same_encoder`), and fine-tuning it on FUNSD (seed 1) gives exactly the original's 0.8838.
+
+**Downstream** (same fine-tuning recipes and seeds 1-5 as above; paired t-test against the original checkpoint):
+
+| Initialisation (base) | FUNSD F1 | CORD F1 |
+|---|---:|---:|
+| `microsoft/layoutlmv3-base` | 0.895 ± 0.007 | 0.936 ± 0.004 |
+| + continued pre-training, joint from step 0 (above) | 0.900 ± 0.007 (p = 0.29) | 0.937 ± 0.005 (p = 0.69) |
+| + continued pre-training, head warm-up + gentler joint training | 0.899 ± 0.004 (p = 0.19) | 0.933 ± 0.004 (p = 0.27) |
+| random init + the same 7,000 steps (2 seeds) | 0.402 ± 0.007 | not run |
+
+Per-seed differences (warm-up recipe minus original): FUNSD +1.39, −0.12, +0.48, 0.00, +0.35 F1 points (mean +0.42); CORD +0.23, −1.07, −0.41, +0.22, −0.54 (mean −0.31). Neither difference can be told apart from seed noise, and against the earlier continued checkpoint the warm-up recipe is −0.09 on FUNSD (p = 0.85) and −0.45 on CORD (p = 0.09). So the head warm-up fixes the starting point and ends at a lower validation loss (6.77 vs 6.95; MLM accuracy 0.534 vs 0.515, MIM 0.214 vs 0.211), but it still gives **no reliable downstream gain** at this scale. Damage from random-head gradients does not explain the earlier null result; the more likely reason remains the one given above (a few thousand steps on 42k pages, on top of 11M pages of pre-training on similar documents).
+
+The from-scratch control shows how far ahead continued pre-training starts: with the same 7,000 steps on 42k pages, a randomly initialised model reaches FUNSD F1 0.40, against 0.895 for the released checkpoint before any continued training.
+
+**Not done.** `layoutlmv3-large` was not rerun with this recipe: because base shows no downstream gain, the larger run (≈3 h pre-training plus ≈2.5 h fine-tuning) was left for a decision. Per-run logs, per-seed scores and the registry entries are in `results/idl_warmup/` and `experiments/registry.jsonl`.
+
 ### Earlier sanity run: FUNSD train only (k-means targets)
 
 This run predates the IDL corpus, the dVAE tokenizer and best-checkpoint selection (it used the last step, from commit `6aa8569`). Continued pre-training used the **FUNSD train split only** (129 documents for training and 20 held out to monitor the objectives), for 3,000 steps at batch size 8, on one A100 (13 minutes).
@@ -137,6 +196,18 @@ Validation losses bottom out around steps 750 (MIM) and 1,250 (MLM) and then ris
 | + continued pre-training on FUNSD train (this repo) | 0.891 ± 0.002 |
 
 So there is **no gain**, which is what you should expect from 129 documents. The base model's score matches the commonly reported ~0.90 for this fine-tuning recipe, which is a useful check that the evaluation is set up correctly. (Seeds 1-3 of the 5-seed base run above reproduce these three scores exactly.)
+
+## Run registry
+
+Every run of `scripts/pretrain.py`, `scripts/finetune_funsd.py` and `scripts/finetune_dvae.py` appends one JSON line to `experiments/registry.jsonl` (`src/layoutlmv3_pretraining/tracking.py`, no external service). A record holds: run id, kind, tags, UTC start/end, status (`completed` or `failed`, with the error), git commit + dirty flag (+ a SHA-256 of `git diff HEAD` and the untracked files if dirty), the exact command line, all parsed arguments, the resolved config (model, random or pretrained init, WPA head, image tokenizer and its path, corpus shards and page counts, seeds, learning rates, loading report), the environment (Python, torch, transformers, CUDA, GPU name, `CUDA_VISIBLE_DEVICES`), output paths and a metrics summary (pre-training: validation metrics at step 0, after the head warm-up, final and best; fine-tuning: per-seed F1, mean, std). The record is written once at the end, under a file lock, also when the run fails, and a copy goes next to the outputs (`<output_dir>/run_record.json`, or `records/<name>.run_record.json` next to a fine-tuning results file). Set `LAYOUTLMV3_REGISTRY` to write elsewhere.
+
+```bash
+python scripts/list_runs.py                      # table: id, date, model, init, variant, hyperparameters, headline metrics
+python scripts/list_runs.py --tag probes         # filter by tag (repeatable), --kind pretrain, --status failed
+python scripts/list_runs.py --json <run_id>      # one full record
+```
+
+Runs that finished before the registry existed were added by `scripts/backfill_registry.py` and are marked `"backfilled": true`. Their fields come only from what was saved at the time (results JSON, `run_info.json`, launch scripts, file times); anything that was not recorded, such as the exact git commit of the older runs, is left null.
 
 ## Licence
 
