@@ -110,3 +110,123 @@ def test_kmeans_tokenizer_roundtrip(tmp_path):
     assert ids.shape == (2, 196) and ids.max() < 16
     tok.save(tmp_path / "t.npz")
     assert torch.equal(KMeansPatchTokenizer.load(tmp_path / "t.npz").encode(pv[0]), ids)
+
+
+# ------------------------------------------------------------------ DALL-E dVAE tokenizer
+
+def _dalle_weights():
+    import os
+    from pathlib import Path
+    for p in (os.environ.get("DALLE_ENCODER"), "runs/dalle/encoder.pkl",
+              Path.home() / ".cache" / "layoutlmv3_pretraining" / "dalle_encoder.pkl"):
+        if p and Path(p).exists():
+            return str(p)
+    return None
+
+
+def test_dalle_tokenizer_preprocessing_inverts_processor_normalisation():
+    from layoutlmv3_pretraining.dvae import DalleEncoder, DalleTokenizer, LOGIT_LAPLACE_EPS
+    tok = DalleTokenizer(DalleEncoder(n_hid=8, vocab_size=16))
+    white = torch.ones(1, 3, 224, 224)                    # processor output for a white page: (1 - 0.5) / 0.5
+    black = -torch.ones(1, 3, 224, 224)
+    x_w, x_b = tok.preprocess(white), tok.preprocess(black)
+    assert x_w.shape == (1, 3, 112, 112)
+    torch.testing.assert_close(x_w, torch.full_like(x_w, 1 - LOGIT_LAPLACE_EPS))
+    torch.testing.assert_close(x_b, torch.full_like(x_b, LOGIT_LAPLACE_EPS))
+    ids = tok.encode(torch.rand(2, 3, 224, 224) * 2 - 1)
+    assert ids.shape == (2, 196) and ids.dtype == torch.long and int(ids.max()) < 16 and tok.vocab_size == 16
+
+
+@pytest.mark.skipif(_dalle_weights() is None, reason="DALL-E encoder.pkl not available (set DALLE_ENCODER)")
+def test_dalle_tokenizer_with_openai_weights():
+    from layoutlmv3_pretraining import DalleTokenizer
+    tok = DalleTokenizer.from_pretrained(_dalle_weights())
+    assert tok.vocab_size == 8192
+    g = torch.Generator().manual_seed(0)
+    pv = torch.rand(2, 3, 224, 224, generator=g) * 2 - 1
+    ids = tok.encode(pv)
+    assert ids.shape == (2, 196) and ids.dtype == torch.long and 0 <= int(ids.min()) and int(ids.max()) < 8192
+    # a blank page is dominated by one token (borders differ because of zero padding); noise is not
+    blank = tok.encode(torch.ones(1, 3, 224, 224))
+    assert torch.bincount(blank[0]).max() > 196 // 2 and ids[0].unique().numel() > 20
+
+
+def test_collator_without_image_tokenizer_defers_mim_labels():
+    from layoutlmv3_pretraining import KMeansPatchTokenizer
+    from layoutlmv3_pretraining.data import PretrainingCollator, add_mim_labels
+
+    class Tok:
+        all_special_ids, mask_token_id = [0, 1, 2], 3
+
+    b = tiny_batch(b=2, t=16)
+    feats = [{k: b[k][i] for k in ("input_ids", "bbox", "attention_mask", "pixel_values")} for i in range(2)]
+    out = PretrainingCollator(Tok(), None, seed=0)(feats)
+    assert "mim_labels" not in out and out["bool_masked_pos"].sum(1).tolist() == [78, 78]
+    tok = KMeansPatchTokenizer(np.random.default_rng(0).normal(size=(8, 16)))
+    add_mim_labels(out, tok)
+    m = out["bool_masked_pos"]
+    assert (out["mim_labels"][~m] == -100).all() and (out["mim_labels"][m] >= 0).all()
+
+
+# ------------------------------------------------------------------ IDL corpus
+
+def test_line_boxes_to_words_normalises_to_0_1000():
+    from layoutlmv3_pretraining.corpus import line_boxes_to_words
+    words, boxes = line_boxes_to_words(["Hello world", "low", "x"], [[0.1, 0.2, 0.3, 0.05], [0, 0, 1, 1],
+                                                                     [0.95, 0.9, 0.2, 0.2]],
+                                       scores=[0.99, 0.1, 0.9], min_score=0.5)
+    assert words == ["Hello", "world", "x"]
+    assert boxes == [[100, 200, 400, 250], [100, 200, 400, 250], [950, 900, 1000, 1000]]
+
+
+def test_idl_pages_from_webdataset_tar(tmp_path):
+    import io, json, tarfile
+    from PIL import Image
+    from layoutlmv3_pretraining.corpus import IDLPages, NgramBlocklist
+    page = {"text": ["one two three four five six seven", "eight nine ten"],
+            "bbox": [[0.1, 0.1, 0.5, 0.02], [0.1, 0.2, 0.3, 0.02]], "score": [0.9, 0.9]}
+    frames = [Image.new("1", (1000, 1300), 1) for _ in range(3)]
+    tif = io.BytesIO(); frames[0].save(tif, format="TIFF", save_all=True, append_images=frames[1:])
+    members = {"doc1.json": json.dumps({"pages": [page] * 3}).encode(), "doc1.tif": tif.getvalue(),
+               "doc2.json": json.dumps({"pages": [{"text": ["too short"], "bbox": [[0, 0, 1, 1]]}]}).encode(),
+               "doc2.tif": tif.getvalue()}
+    path = tmp_path / "shard.tar"
+    with tarfile.open(path, "w") as t:
+        for name, data in members.items():
+            info = tarfile.TarInfo(name); info.size = len(data); t.addfile(info, io.BytesIO(data))
+
+    class Proc:  # stands in for LayoutLMv3Processor
+        def __call__(self, images, words, boxes, **kw):
+            n = len(words[0])
+            return {"input_ids": torch.ones(1, n, dtype=torch.long), "bbox": torch.tensor([boxes[0]]),
+                    "attention_mask": torch.ones(1, n, dtype=torch.long),
+                    "pixel_values": torch.zeros(1, 3, *images[0].size[::-1])}
+
+    ds = IDLPages([str(path)], Proc(), max_pages_per_doc=2)
+    pages = list(ds.raw_pages())
+    assert [p["key"] for p in pages] == ["doc1/0", "doc1/1"]           # 2 pages max, doc2 too short
+    assert pages[0]["image"].mode == "RGB" and len(pages[0]["tokens"]) == 10
+    assert pages[0]["bboxes"][0] == [100, 100, 600, 120]
+    items = list(ds)
+    assert len(items) == 2 and items[0]["bbox"].shape == (10, 4)
+    block = NgramBlocklist([page["text"][0].split()], n=5)
+    assert block(pages[0]["tokens"]) and not block(["completely", "different", "words", "on", "this", "page"])
+    assert list(IDLPages([str(path)], Proc(), exclude=block).raw_pages()) == []
+
+
+@pytest.mark.parametrize("hidden,layers,heads,coord,shape", [(32, 2, 2, 6, 4), (48, 3, 4, 8, 8)])
+def test_from_backbone_sizes_heads_from_config(tmp_path, hidden, layers, heads, coord, shape):
+    """Heads follow the backbone's hidden size / depth (base: 768 x 12, large: 1024 x 24)."""
+    from transformers import LayoutLMv3Model
+    cfg = tiny_config()
+    cfg.hidden_size, cfg.num_hidden_layers, cfg.num_attention_heads, cfg.intermediate_size = \
+        hidden, layers, heads, 2 * hidden
+    cfg.coordinate_size, cfg.shape_size = coord, shape          # 4 * coord + 2 * shape == hidden
+    LayoutLMv3Model(cfg).save_pretrained(tmp_path)
+    model = LayoutLMv3ForPreTraining.from_backbone(str(tmp_path), image_vocab_size=8192)
+    assert model.mlm_head.dense.weight.shape == (hidden, hidden)
+    assert model.mlm_head.decoder.weight is model.layoutlmv3.embeddings.word_embeddings.weight
+    assert model.mim_head[1].weight.shape == (8192, hidden) and model.wpa_head.weight.shape == (2, hidden)
+    assert len(model.layoutlmv3.encoder.layer) == layers
+    out = model(**tiny_batch(k=8192))
+    assert out.mim_logits.shape == (2, 196, 8192) and torch.isfinite(out.loss)

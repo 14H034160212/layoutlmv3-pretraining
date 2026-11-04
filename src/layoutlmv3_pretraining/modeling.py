@@ -73,6 +73,8 @@ class LayoutLMv3PreTrainingOutput(ModelOutput):
 class LayoutLMv3ForPreTraining(LayoutLMv3PreTrainedModel):
     """Sum of the three objectives. Every term is a tensor, so all of them back-propagate."""
 
+    supports_gradient_checkpointing = True
+
     def __init__(self, config: LayoutLMv3Config, image_vocab_size: int = 512):
         super().__init__(config)
         self.config.image_vocab_size = image_vocab_size

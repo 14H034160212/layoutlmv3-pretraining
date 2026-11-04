@@ -10,7 +10,7 @@ interface and a dependency-free default:
   but it gives MIM a meaningful discrete target and needs no external weights.
 
 Any object with ``vocab_size`` and ``encode(pixel_values) -> LongTensor[B, N]``
-can be used instead (for example a wrapper around a dVAE).
+can be used instead; ``dvae.DalleTokenizer`` wraps OpenAI's DALL-E dVAE that way.
 """
 
 from __future__ import annotations
