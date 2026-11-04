@@ -1,0 +1,73 @@
+import argparse
+import json
+import subprocess
+from concurrent.futures import ProcessPoolExecutor
+from pathlib import Path
+
+import numpy as np
+import pytest
+
+from layoutlmv3_pretraining.tracking import RunTracker, append_record, git_info, read_registry, to_jsonable
+
+
+def test_completed_run_is_recorded_with_copy(tmp_path):
+    reg, out = tmp_path / "registry.jsonl", tmp_path / "run"
+    args = argparse.Namespace(lr=1e-5, seeds=[1, 2], output_dir=str(out))
+    with RunTracker("pretrain", args, output_dir=out, tags=["t1"], registry=reg, argv=["x.py", "--lr", "1e-5"]) as run:
+        run.config["model"] = "m"
+        run.metrics["f1"] = np.float32(0.5)
+        run.outputs["backbone"] = out / "backbone"
+    (rec,) = read_registry(reg)
+    assert rec["status"] == "completed" and rec["kind"] == "pretrain" and rec["tags"] == ["t1"]
+    assert rec["args"] == {"lr": 1e-5, "seeds": [1, 2], "output_dir": str(out)}
+    assert rec["config"] == {"model": "m"} and rec["metrics"]["f1"] == pytest.approx(0.5)
+    assert rec["argv"] == ["x.py", "--lr", "1e-5"] and rec["error"] is None and not rec["backfilled"]
+    assert rec["outputs"]["output_dir"] == str(out) and rec["outputs"]["backbone"].endswith("backbone")
+    for key in ("run_id", "start_utc", "end_utc", "git", "environment", "command"):
+        assert key in rec
+    assert {"python", "cuda_visible_devices"} <= set(rec["environment"])
+    assert json.loads((out / "run_record.json").read_text()) == rec
+
+
+def test_failed_run_is_recorded_and_exception_propagates(tmp_path):
+    reg = tmp_path / "registry.jsonl"
+    with pytest.raises(RuntimeError, match="boom"):
+        with RunTracker("finetune_funsd", {"a": 1}, registry=reg, argv=[]) as run:
+            run.metrics["partial"] = 1
+            raise RuntimeError("boom")
+    (rec,) = read_registry(reg)
+    assert rec["status"] == "failed" and rec["error"] == "RuntimeError: boom" and rec["metrics"] == {"partial": 1}
+
+
+def _append(args):
+    reg, i = args
+    append_record({"run_id": i, "payload": "x" * 20000}, reg)
+
+
+def test_concurrent_appends_never_interleave(tmp_path):
+    reg = tmp_path / "registry.jsonl"
+    with ProcessPoolExecutor(4) as ex:
+        list(ex.map(_append, [(str(reg), i) for i in range(40)]))
+    assert sorted(r["run_id"] for r in read_registry(reg)) == list(range(40))
+
+
+def test_git_info_detects_dirty_tree(tmp_path):
+    def git(*a):
+        subprocess.run(["git", *a], cwd=tmp_path, check=True, capture_output=True)
+    git("init", "-q"); git("config", "user.email", "t@t"); git("config", "user.name", "t")
+    (tmp_path / "f.txt").write_text("a"); git("add", "f.txt"); git("commit", "-qm", "c")
+    clean = git_info(tmp_path)
+    assert len(clean["commit"]) == 40 and clean["dirty"] is False and clean["diff_sha256"] is None
+    (tmp_path / "f.txt").write_text("b"); (tmp_path / "new.txt").write_text("n")
+    dirty = git_info(tmp_path)
+    assert dirty["dirty"] and len(dirty["diff_sha256"]) == 64 and dirty["untracked"] == ["new.txt"]
+    (tmp_path / "f.txt").write_text("c")
+    assert git_info(tmp_path)["diff_sha256"] != dirty["diff_sha256"]
+    assert git_info(Path("/"))["commit"] is None                             # not a repository
+
+
+def test_to_jsonable():
+    import torch
+    out = to_jsonable({"p": Path("/a"), "t": torch.tensor(2.5), "n": np.int64(3), "s": {1}, 1: (1, 2)})
+    assert out == {"p": "/a", "t": 2.5, "n": 3, "s": [1], "1": [1, 2]}
+    json.dumps(out)

@@ -80,7 +80,7 @@ def test_all_three_losses_backpropagate_into_backbone():
     out = model(**batch)
     torch.testing.assert_close(out.loss, out.mlm_loss + out.mim_loss + out.wpa_loss)
     out.loss.backward()
-    for head in (model.mlm_head.dense, model.mim_head[1], model.wpa_head):
+    for head in (model.mlm_head.dense, model.mim_head[1], model.wpa_head.net):
         assert head.weight.grad.abs().sum() > 0
     assert model.layoutlmv3.image_mask_token.grad.abs().sum() > 0
 
@@ -226,7 +226,7 @@ def test_from_backbone_sizes_heads_from_config(tmp_path, hidden, layers, heads, 
     model = LayoutLMv3ForPreTraining.from_backbone(str(tmp_path), image_vocab_size=8192)
     assert model.mlm_head.dense.weight.shape == (hidden, hidden)
     assert model.mlm_head.decoder.weight is model.layoutlmv3.embeddings.word_embeddings.weight
-    assert model.mim_head[1].weight.shape == (8192, hidden) and model.wpa_head.weight.shape == (2, hidden)
+    assert model.mim_head[1].weight.shape == (8192, hidden) and model.wpa_head.net.weight.shape == (2, hidden)
     assert len(model.layoutlmv3.encoder.layer) == layers
     out = model(**tiny_batch(k=8192))
     assert out.mim_logits.shape == (2, 196, 8192) and torch.isfinite(out.loss)
@@ -289,3 +289,48 @@ def test_from_backbone_random_init_does_not_load_weights(tmp_path):
     w = "encoder.layer.0.attention.self.query.weight"
     assert not torch.equal(loaded.layoutlmv3.state_dict()[w], scratch.layoutlmv3.state_dict()[w])
     assert scratch.mlm_head.decoder.weight is scratch.layoutlmv3.embeddings.word_embeddings.weight
+
+
+# ------------------------------------------------------------------ WPA head variants
+
+def test_token_patch_matrix_matches_bbox_to_patches():
+    from layoutlmv3_pretraining.modeling import token_patch_matrix
+    g = torch.Generator().manual_seed(0)
+    x0 = torch.randint(0, 1000, (3, 40), generator=g); y0 = torch.randint(0, 1000, (3, 40), generator=g)
+    x1 = (x0 + torch.randint(-50, 300, (3, 40), generator=g)).clamp(max=1000)
+    y1 = (y0 + torch.randint(-50, 300, (3, 40), generator=g)).clamp(max=1000)
+    bbox = torch.stack([x0, y0, x1, y1], -1)
+    bbox[0, 0] = torch.tensor([0, 0, 0, 0])                                   # e.g. a special token
+    m = token_patch_matrix(bbox)
+    for b in range(3):
+        for t in range(40):
+            assert torch.nonzero(m[b, t]).flatten().tolist() == bbox_to_patches(bbox[b, t].tolist()), (b, t)
+
+
+@pytest.mark.parametrize("variant", ["linear", "mlp", "mlp_patch"])
+def test_wpa_head_variants(variant):
+    torch.manual_seed(0)
+    model = LayoutLMv3ForPreTraining(tiny_config(), image_vocab_size=8, wpa_head=variant)
+    assert model.config.wpa_head == variant
+    batch = tiny_batch()
+    out = model(**batch)
+    assert out.wpa_logits.shape == (2, 16, 2)
+    out.wpa_loss.backward()
+    assert all(p.grad is not None for p in model.wpa_head.parameters())
+    assert model.layoutlmv3.encoder.layer[0].attention.self.query.weight.grad.abs().sum() > 0
+    assert set(model.new_parameters()) >= {f"wpa_head.{n}" for n, _ in model.wpa_head.named_parameters()}
+
+
+def test_wpa_mlp_patch_reads_the_covered_patches():
+    """mlp_patch: a token's logits depend on the hidden states of the patches its box covers, not on others."""
+    from layoutlmv3_pretraining.modeling import WPAHead
+    torch.manual_seed(0)
+    head = WPAHead(tiny_config(), "mlp_patch")
+    text, patches = torch.randn(1, 1, 32), torch.randn(1, 196, 32)
+    bbox = torch.tensor([[[0, 0, 70, 70]]])                                   # the top-left patch only
+    covered = bbox_to_patches(bbox[0, 0].tolist())
+    base = head(text, patches, bbox)
+    other = patches.clone(); other[0, [p for p in range(196) if p not in covered]] += 5.0
+    torch.testing.assert_close(head(text, other, bbox), base)
+    touched = patches.clone(); touched[0, covered] += 5.0
+    assert not torch.allclose(head(text, touched, bbox), base)

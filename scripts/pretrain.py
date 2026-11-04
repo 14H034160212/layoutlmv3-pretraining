@@ -26,12 +26,14 @@ from pathlib import Path
 
 import torch
 from datasets import load_dataset
+from sklearn.metrics import balanced_accuracy_score, roc_auc_score
 from torch.utils.data import DataLoader
 from transformers import LayoutLMv3Processor, get_cosine_schedule_with_warmup
 
 from layoutlmv3_pretraining import DalleTokenizer, KMeansPatchTokenizer, LayoutLMv3ForPreTraining
 from layoutlmv3_pretraining.corpus import IDLPages, NgramBlocklist, resolve_idl_sources
 from layoutlmv3_pretraining.data import PretrainingCollator, add_mim_labels, encode_documents
+from layoutlmv3_pretraining.tracking import RunTracker
 
 
 def parse_range(spec: str) -> list[int]:
@@ -56,8 +58,10 @@ def to_device(batch, device, img_tok):
 
 @torch.no_grad()
 def evaluate(model, val_batches, device, img_tok):
+    """Mean of per-batch losses/accuracies, plus pooled WPA AUC / balanced accuracy and MIM target statistics."""
     model.eval()
     agg = {k: [] for k in ("loss", "mlm_loss", "mim_loss", "wpa_loss", "mlm_acc", "mim_acc", "wpa_acc")}
+    wpa_p, wpa_y, mim_y = [], [], []
     for batch in val_batches:
         batch = to_device(batch, device, img_tok)
         with torch.autocast("cuda", dtype=torch.bfloat16, enabled=device == "cuda"):
@@ -67,8 +71,21 @@ def evaluate(model, val_batches, device, img_tok):
         agg["mlm_acc"].append(accuracy(out.mlm_logits, batch["mlm_labels"]))
         agg["mim_acc"].append(accuracy(out.mim_logits, batch["mim_labels"]))
         agg["wpa_acc"].append(accuracy(out.wpa_logits, batch["wpa_labels"]))
+        m = batch["wpa_labels"] != -100
+        wpa_p.append(out.wpa_logits.float().softmax(-1)[..., 1][m].cpu()); wpa_y.append(batch["wpa_labels"][m].cpu())
+        mim_y.append(batch["mim_labels"][batch["mim_labels"] != -100].cpu())
     model.train()
-    return {k: round(sum(v) / len(v), 4) for k, v in agg.items()}
+    res = {k: round(sum(v) / len(v), 4) for k, v in agg.items()}
+    p, y = torch.cat(wpa_p).numpy(), torch.cat(wpa_y).numpy()
+    res["wpa_auc"] = round(float(roc_auc_score(y, p)), 4) if len(set(y.tolist())) == 2 else float("nan")
+    res["wpa_bal_acc"] = round(float(balanced_accuracy_score(y, p > 0.5)), 4)
+    res["wpa_majority"] = round(float(max(y.mean(), 1 - y.mean())), 4)
+    counts = torch.bincount(torch.cat(mim_y)).float()
+    probs = counts[counts > 0] / counts.sum()
+    res["mim_codes_used"] = int((counts > 0).sum())
+    res["mim_code_perplexity"] = round(float(torch.exp(-(probs * probs.log()).sum())), 1)
+    res["mim_majority"] = round(float(probs.max()), 4)
+    return res
 
 
 def save_backbone(model, processor, path: Path):
@@ -153,6 +170,8 @@ def main():
                     help="optimiser steps that train only the new parameters (heads, image [MASK] token) "
                          "with the encoder frozen, before joint training; not counted in --max_steps")
     ap.add_argument("--head_lr", type=float, default=1e-3, help="peak lr during the head warm-up (cosine)")
+    ap.add_argument("--wpa_head", choices=["linear", "mlp", "mlp_patch"], default="linear",
+                    help="WPA classifier: linear or 2-layer MLP on the text token, or MLP on [text; covered patches]")
     ap.add_argument("--random_init", action="store_true",
                     help="control: use --model's config but random weights (pre-training from scratch)")
     ap.add_argument("--warmup_ratio", type=float, default=0.05)
@@ -163,8 +182,17 @@ def main():
                     help="stop after this many evaluations without a lower validation loss (0: never)")
     ap.add_argument("--save_last", action="store_true", help="also save the final step to last_backbone/")
     ap.add_argument("--seed", type=int, default=42)
+    ap.add_argument("--tags", nargs="*", default=[], help="free-form tags for experiments/registry.jsonl")
     a = ap.parse_args()
 
+    tags = list(a.tags)
+    if a.head_warmup_steps and a.max_steps == 0:
+        tags.append("probe")
+    with RunTracker("pretrain", a, output_dir=a.output_dir, tags=tags) as run:
+        train(a, run)
+
+
+def train(a, run):
     torch.manual_seed(a.seed)
     out_dir = Path(a.output_dir); out_dir.mkdir(parents=True, exist_ok=True)
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -182,9 +210,19 @@ def main():
                 setup_minutes=round((time.time() - t0) / 60, 1), args=vars(a))
     (out_dir / "run_info.json").write_text(json.dumps(info, indent=1))
     print(json.dumps(info), flush=True)
+    run.config.update(
+        model=a.model, init="random" if a.random_init else "pretrained", wpa_head=a.wpa_head,
+        image_tokenizer=a.image_tokenizer, image_tokenizer_path=a.dalle_encoder if a.image_tokenizer == "dalle"
+        else str(out_dir / "image_tokenizer.npz"), image_vocab_size=img_tok.vocab_size, corpus=a.corpus,
+        train_shards=a.idl_shards if a.corpus == "idl" else None, val_shards=a.idl_val_shards if a.corpus == "idl" else None,
+        dataset=a.dataset if a.corpus == "hf" else None, seed=a.seed, head_warmup_steps=a.head_warmup_steps,
+        head_lr=a.head_lr, max_steps=a.max_steps, lr=a.lr, layer_decay=a.layer_decay,
+        effective_batch=a.batch_size * a.grad_accum, corpus_info={k: v for k, v in info.items() if k != "args"})
 
-    model = LayoutLMv3ForPreTraining.from_backbone(a.model, img_tok.vocab_size, random_init=a.random_init).to(device)
+    model = LayoutLMv3ForPreTraining.from_backbone(a.model, img_tok.vocab_size, random_init=a.random_init,
+                                                 wpa_head=a.wpa_head).to(device)
     info["loading_info"] = model.loading_info
+    run.config["loading_info"] = model.loading_info
     print(json.dumps({"loading_info": model.loading_info}), flush=True)
     (out_dir / "run_info.json").write_text(json.dumps(info, indent=1))
     if a.gradient_checkpointing:
@@ -219,6 +257,8 @@ def main():
     log = [{"step": 0, "phase": "head_warmup" if warmup else "joint",
             **evaluate(model, val_batches, device, img_tok)}]
     print(json.dumps(log[-1]), flush=True)
+    run.outputs.update(log=str(out_dir / "log.json"), run_info=str(out_dir / "run_info.json"))
+    run.metrics["step0"] = log[0]
     best, bad_evals, step, micro, t0 = float("inf"), 0, 0, 0, time.time()
     done = False
     while not done:
@@ -275,6 +315,13 @@ def main():
         save_backbone(model, processor, out_dir / "last_backbone")
     joint = [r for r in log[1:] if r["phase"] == "joint"]
     best_step = min(joint, key=lambda r: r["loss"])["step"] if joint else 0
+    after_warmup = [r for r in log if r["step"] == warmup and r["phase"] == "head_warmup" and warmup]
+    run.metrics.update(after_head_warmup=after_warmup[0] if after_warmup else None, final=log[-1],
+                       best_joint=min(joint, key=lambda r: r["loss"]) if joint else None,
+                       steps_done=step, wall_minutes=round((time.time() - t0) / 60, 1))
+    run.outputs.update(backbone=str(out_dir / "backbone") if joint else None,
+                       warmup_backbone=str(out_dir / "warmup_backbone") if warmup else None,
+                       last_backbone=str(out_dir / "last_backbone") if a.save_last else None)
     print(f"best validation loss {best:.4f} at step {best_step}; saved to {out_dir / 'backbone'}", flush=True)
 
 

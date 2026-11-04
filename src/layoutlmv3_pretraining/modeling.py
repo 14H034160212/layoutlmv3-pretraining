@@ -59,6 +59,49 @@ class LMHead(nn.Module):
         return self.decoder(self.layer_norm(self.act(self.dense(x))))
 
 
+def token_patch_matrix(bbox: torch.Tensor, grid: int = 14, scale: int = 1000) -> torch.Tensor:
+    """(B, T, grid * grid) bool: which patches each token's 0-1000 box overlaps (vectorised ``bbox_to_patches``)."""
+    x0, y0, x1, y1 = bbox.long().unbind(-1)
+    valid = (x1 > x0) & (y1 > y0)
+    c0, c1 = x0 * grid // scale, ((x1 * grid - 1) // scale).clamp(max=grid - 1)
+    r0, r1 = y0 * grid // scale, ((y1 * grid - 1) // scale).clamp(max=grid - 1)
+    idx = torch.arange(grid, device=bbox.device)
+    cols = (idx >= c0[..., None]) & (idx <= c1[..., None])                  # B, T, grid
+    rows = (idx >= r0[..., None]) & (idx <= r1[..., None])
+    m = rows[..., :, None] & cols[..., None, :] & valid[..., None, None]
+    return m.flatten(-2)
+
+
+class WPAHead(nn.Module):
+    """Word-patch alignment classifier (aligned / unaligned) for each text token.
+
+    * ``linear``    : a linear layer on the text token's hidden state
+    * ``mlp``       : a two-layer MLP on the text token's hidden state
+    * ``mlp_patch`` : a two-layer MLP on [text hidden state; mean hidden state of the image patches its box
+                      covers]; the paper (Sec. 2.3, objective III) describes a two-layer MLP head "that inputs
+                      contextual text and image"
+    """
+
+    VARIANTS = ("linear", "mlp", "mlp_patch")
+
+    def __init__(self, config: LayoutLMv3Config, variant: str = "linear"):
+        super().__init__()
+        assert variant in self.VARIANTS, variant
+        self.variant, d = variant, config.hidden_size
+        if variant == "linear":
+            self.net = nn.Linear(d, 2)
+        else:
+            d_in = 2 * d if variant == "mlp_patch" else d
+            self.net = nn.Sequential(nn.Linear(d_in, d), nn.GELU(), nn.Linear(d, 2))
+
+    def forward(self, text, patches=None, bbox=None):
+        if self.variant == "mlp_patch":
+            m = token_patch_matrix(bbox, grid=int(round(patches.shape[1] ** 0.5))).type_as(patches)
+            pooled = torch.einsum("btp,bpd->btd", m, patches) / m.sum(-1, keepdim=True).clamp(min=1)
+            text = torch.cat([text, pooled], -1)
+        return self.net(text)
+
+
 @dataclass
 class LayoutLMv3PreTrainingOutput(ModelOutput):
     loss: torch.FloatTensor | None = None
@@ -75,20 +118,21 @@ class LayoutLMv3ForPreTraining(LayoutLMv3PreTrainedModel):
 
     supports_gradient_checkpointing = True
 
-    def __init__(self, config: LayoutLMv3Config, image_vocab_size: int = 512):
+    def __init__(self, config: LayoutLMv3Config, image_vocab_size: int = 512, wpa_head: str | None = None):
         super().__init__(config)
         self.config.image_vocab_size = image_vocab_size
+        self.config.wpa_head = wpa_head or getattr(config, "wpa_head", "linear")
         self.layoutlmv3 = LayoutLMv3ModelWithImageMask(config)
         self.mlm_head = LMHead(config)
         self.mim_head = nn.Sequential(nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps),
                                       nn.Linear(config.hidden_size, image_vocab_size))
-        self.wpa_head = nn.Linear(config.hidden_size, 2)
+        self.wpa_head = WPAHead(config, self.config.wpa_head)
         self.post_init()
         self.mlm_head.decoder.weight = self.layoutlmv3.embeddings.word_embeddings.weight  # tie
 
     @classmethod
     def from_backbone(cls, name_or_path: str, image_vocab_size: int = 512,
-                      random_init: bool = False) -> "LayoutLMv3ForPreTraining":
+                      random_init: bool = False, wpa_head: str = "linear") -> "LayoutLMv3ForPreTraining":
         """Start from a pretrained ``LayoutLMv3Model`` checkpoint (e.g. microsoft/layoutlmv3-base).
 
         The released checkpoints contain only the encoder, so the MLM/MIM/WPA heads (and the image
@@ -97,12 +141,12 @@ class LayoutLMv3ForPreTraining(LayoutLMv3PreTrainedModel):
         not its weights (a from-scratch control). ``model.loading_info`` records what was loaded.
         """
         if random_init:
-            model = cls(LayoutLMv3Config.from_pretrained(name_or_path), image_vocab_size)
+            model = cls(LayoutLMv3Config.from_pretrained(name_or_path), image_vocab_size, wpa_head)
             model.loading_info = {"random_init": True}
             return model
         backbone, info = LayoutLMv3Model.from_pretrained(name_or_path, output_loading_info=True)
         assert not info["missing_keys"] and not info["unexpected_keys"] and not info["mismatched_keys"], info
-        model = cls(backbone.config, image_vocab_size)
+        model = cls(backbone.config, image_vocab_size, wpa_head)
         missing, unexpected = model.layoutlmv3.load_state_dict(backbone.state_dict(), strict=False)
         assert set(missing) <= {"image_mask_token"} and not unexpected, (missing, unexpected)
         model.mlm_head.decoder.weight = model.layoutlmv3.embeddings.word_embeddings.weight
@@ -163,7 +207,7 @@ class LayoutLMv3ForPreTraining(LayoutLMv3PreTrainedModel):
         seq = out.last_hidden_state
         t = input_ids.shape[1]
         text, patches = seq[:, :t], seq[:, t + 1:]                       # skip the visual [CLS]
-        mlm_logits, wpa_logits = self.mlm_head(text), self.wpa_head(text)
+        mlm_logits, wpa_logits = self.mlm_head(text), self.wpa_head(text, patches, bbox)
         mim_logits = self.mim_head(patches)
 
         losses = {}
