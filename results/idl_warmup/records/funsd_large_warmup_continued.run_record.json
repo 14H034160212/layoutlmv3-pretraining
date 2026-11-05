@@ -1,0 +1,113 @@
+{
+ "run_id": "20261105T052410Z-finetune_funsd-0a8336",
+ "kind": "finetune_funsd",
+ "status": "completed",
+ "backfilled": false,
+ "tags": [
+  "idl_warmup",
+  "large",
+  "pretrained"
+ ],
+ "start_utc": "2026-11-05T05:24:10+00:00",
+ "end_utc": "2026-11-05T05:47:11+00:00",
+ "git": {
+  "commit": "ac1eb9f5daab75df39fdc5b596f210e05d5bd934",
+  "dirty": true,
+  "diff_sha256": "2def5bebb07a552e3f689c3a7eeba6d9e911857d165a985f9940f929d61581ba",
+  "untracked": [
+   "results/idl_warmup/drift_large_pretrained.json",
+   "results/idl_warmup/pretrain_large_pretrained_log.json",
+   "results/idl_warmup/pretrain_large_pretrained_run_info.json"
+  ]
+ },
+ "command": "python scripts/finetune_funsd.py --task funsd --model runs/idl_warmup_large_pretrained/backbone --seeds 1 2 3 4 5 --tags idl_warmup large pretrained --out results/idl_warmup/funsd_large_warmup_continued.json",
+ "argv": [
+  "scripts/finetune_funsd.py",
+  "--task",
+  "funsd",
+  "--model",
+  "runs/idl_warmup_large_pretrained/backbone",
+  "--seeds",
+  "1",
+  "2",
+  "3",
+  "4",
+  "5",
+  "--tags",
+  "idl_warmup",
+  "large",
+  "pretrained",
+  "--out",
+  "results/idl_warmup/funsd_large_warmup_continued.json"
+ ],
+ "cwd": "/data/qbao775/layoutlmv3-pretraining",
+ "args": {
+  "model": "runs/idl_warmup_large_pretrained/backbone",
+  "task": "funsd",
+  "seeds": [
+   1,
+   2,
+   3,
+   4,
+   5
+  ],
+  "steps": null,
+  "lr": null,
+  "batch_size": null,
+  "out": "results/idl_warmup/funsd_large_warmup_continued.json",
+  "tags": [
+   "idl_warmup",
+   "large",
+   "pretrained"
+  ]
+ },
+ "config": {
+  "task": "funsd",
+  "model": "runs/idl_warmup_large_pretrained/backbone",
+  "seeds": [
+   1,
+   2,
+   3,
+   4,
+   5
+  ],
+  "steps": 1000,
+  "lr": 1e-05,
+  "batch_size": 2,
+  "dataset": "nielsr/funsd-layoutlmv3"
+ },
+ "environment": {
+  "python": "3.11.7",
+  "hostname": "hgx2.novalocal",
+  "cuda_visible_devices": "3",
+  "torch": "2.6.0+cu124",
+  "cuda": "12.4",
+  "gpu": [
+   "NVIDIA A100-SXM4-80GB"
+  ],
+  "transformers": "4.57.6"
+ },
+ "outputs": {
+  "results": "/data/qbao775/layoutlmv3-pretraining/results/idl_warmup/funsd_large_warmup_continued.json"
+ },
+ "metrics": {
+  "per_seed": {
+   "1": 0.9022,
+   "2": 0.8935,
+   "3": 0.8991,
+   "4": 0.9044,
+   "5": 0.9073
+  },
+  "f1": [
+   0.9022,
+   0.8935,
+   0.8991,
+   0.9044,
+   0.9073
+  ],
+  "mean": 0.9013,
+  "std": 0.0053,
+  "minutes": 23.0
+ },
+ "error": null
+}
