@@ -80,7 +80,7 @@ def test_all_three_losses_backpropagate_into_backbone():
     out = model(**batch)
     torch.testing.assert_close(out.loss, out.mlm_loss + out.mim_loss + out.wpa_loss)
     out.loss.backward()
-    for head in (model.mlm_head.dense, model.mim_head[1], model.wpa_head.net):
+    for head in (model.mlm_head.dense, model.mim_head[1], model.wpa_head.net[0], model.wpa_head.net[2]):
         assert head.weight.grad.abs().sum() > 0
     assert model.layoutlmv3.image_mask_token.grad.abs().sum() > 0
 
@@ -226,7 +226,8 @@ def test_from_backbone_sizes_heads_from_config(tmp_path, hidden, layers, heads, 
     model = LayoutLMv3ForPreTraining.from_backbone(str(tmp_path), image_vocab_size=8192)
     assert model.mlm_head.dense.weight.shape == (hidden, hidden)
     assert model.mlm_head.decoder.weight is model.layoutlmv3.embeddings.word_embeddings.weight
-    assert model.mim_head[1].weight.shape == (8192, hidden) and model.wpa_head.net.weight.shape == (2, hidden)
+    assert model.mim_head[1].weight.shape == (8192, hidden) and model.config.wpa_head == "mlp"
+    assert model.wpa_head.net[0].weight.shape == (hidden, hidden) and model.wpa_head.net[2].weight.shape == (2, hidden)
     assert len(model.layoutlmv3.encoder.layer) == layers
     out = model(**tiny_batch(k=8192))
     assert out.mim_logits.shape == (2, 196, 8192) and torch.isfinite(out.loss)
@@ -319,6 +320,48 @@ def test_wpa_head_variants(variant):
     assert all(p.grad is not None for p in model.wpa_head.parameters())
     assert model.layoutlmv3.encoder.layer[0].attention.self.query.weight.grad.abs().sum() > 0
     assert set(model.new_parameters()) >= {f"wpa_head.{n}" for n, _ in model.wpa_head.named_parameters()}
+
+
+def test_wpa_head_default_is_the_papers_two_layer_mlp():
+    """The paper's WPA head is a two-layer MLP; mlp (text token only) is the default everywhere, never mlp_patch."""
+    import importlib.util
+    import pathlib
+    from layoutlmv3_pretraining.modeling import DEFAULT_WPA_HEAD, WPAHead
+    assert DEFAULT_WPA_HEAD == "mlp"
+    model = LayoutLMv3ForPreTraining(tiny_config(), image_vocab_size=8)
+    assert model.config.wpa_head == "mlp" and model.wpa_head.variant == "mlp"
+    assert [type(m).__name__ for m in model.wpa_head.net] == ["Linear", "GELU", "Linear"]
+    assert model.wpa_head.net[0].in_features == tiny_config().hidden_size          # text token only: no patches
+    path = pathlib.Path(__file__).resolve().parents[1] / "scripts" / "pretrain.py"
+    spec = importlib.util.spec_from_file_location("pretrain_script", path)
+    pretrain = importlib.util.module_from_spec(spec); spec.loader.exec_module(pretrain)
+    assert pretrain.build_parser().parse_args(["--output_dir", "x"]).wpa_head == "mlp"
+    # saved heads identify their variant, including heads saved before WPAHead existed (linear runs)
+    for variant in WPAHead.VARIANTS:
+        heads = LayoutLMv3ForPreTraining(tiny_config(), image_vocab_size=8, wpa_head=variant).state_dict()
+        assert WPAHead.variant_of(heads) == variant
+    assert WPAHead.variant_of({"wpa_head.weight": torch.zeros(2, 32), "wpa_head.bias": torch.zeros(2)}) == "linear"
+
+
+def test_save_train_state_roundtrip_is_atomic(tmp_path):
+    import importlib.util
+    import pathlib
+    path = pathlib.Path(__file__).resolve().parents[1] / "scripts" / "pretrain.py"
+    spec = importlib.util.spec_from_file_location("pretrain_script", path)
+    pretrain = importlib.util.module_from_spec(spec); spec.loader.exec_module(pretrain)
+    model = LayoutLMv3ForPreTraining(tiny_config(), image_vocab_size=8)
+    opt = torch.optim.AdamW(model.parameters(), lr=1e-3)
+    model(**tiny_batch()).loss.backward(); opt.step()
+    target = tmp_path / "train_state.pt"
+    pretrain.save_train_state(target, model=model.state_dict(), optimizer=opt.state_dict(), step=7, log=[{"step": 0}])
+    assert sorted(x.name for x in tmp_path.iterdir()) == ["train_state.pt"]           # no temporary file left
+    state = torch.load(target, weights_only=False)
+    fresh = LayoutLMv3ForPreTraining(tiny_config(), image_vocab_size=8)
+    fresh.load_state_dict(state["model"])
+    for (n, p), q in zip(model.state_dict().items(), fresh.state_dict().values()):
+        torch.testing.assert_close(p, q, msg=n)
+    opt2 = torch.optim.AdamW(fresh.parameters(), lr=1e-3); opt2.load_state_dict(state["optimizer"])
+    assert state["step"] == 7 and opt2.state_dict()["state"].keys() == opt.state_dict()["state"].keys()
 
 
 def test_wpa_mlp_patch_reads_the_covered_patches():

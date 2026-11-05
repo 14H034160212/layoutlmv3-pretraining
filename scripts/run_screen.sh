@@ -9,14 +9,14 @@ PY=.venv/bin/python
 OUT=results/screen_v1
 mkdir -p runs/screen_v1 $OUT
 for v in "$@"; do
-  LR=2e-5; EXTRA=""; TOKENIZER=runs/dalle/encoder.pkl
+  LR=2e-5; EXTRA="--wpa_head linear"; TOKENIZER=runs/dalle/encoder.pkl   # the screen's control head
   case $v in
     A) ;;
     B) EXTRA="--wpa_head mlp" ;;
-    C) EXTRA="--mim_weight 0" ;;
+    C) EXTRA="$EXTRA --mim_weight 0" ;;
     D) TOKENIZER=runs/dvae_doc/encoder.pt ;;
     E) LR=1e-5 ;;
-    F) EXTRA="--freeze_layers 6" ;;
+    F) EXTRA="$EXTRA --freeze_layers 6" ;;
     *) echo "unknown variant $v"; exit 1 ;;
   esac
   dir=runs/screen_v1/$v

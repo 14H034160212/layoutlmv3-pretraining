@@ -8,7 +8,8 @@
 # scratch:    the same config with random weights (control): the same 1000 head-only steps, then joint
 #             training from scratch at lr 1e-4 without layer decay (fine-tuning: FUNSD, 2 seeds).
 # Resumable: pre-training is skipped if $OUT/DONE exists, a fine-tuning if its results file exists.
-# LR, DECAY and STEPS can be overridden from the environment.
+# LR, DECAY, STEPS and WPA (WPA head, default mlp) can be overridden from the environment.
+# The committed results/idl_warmup runs used the linear WPA head (the default then): rerun them with WPA=linear.
 set -e
 cd "$(dirname "$0")/.."
 export CUDA_VISIBLE_DEVICES=${GPU:?set GPU} HF_HOME=${HF_HOME:-$HOME/.cache/huggingface}
@@ -20,13 +21,13 @@ mkdir -p runs $RES
 if [ "$SIZE" = large ]; then D_STEPS=4000; D_LR=1e-5; D_DECAY=0.95; CORD_LR=2e-5
 else D_STEPS=6000; D_LR=2e-5; D_DECAY=0.9; CORD_LR=5e-5; fi
 if [ "$INIT" = scratch ]; then EXTRA="--random_init"; D_LR=1e-4; D_DECAY=1.0; else EXTRA=""; fi
-STEPS=${STEPS:-$D_STEPS}; LR=${LR:-$D_LR}; DECAY=${DECAY:-$D_DECAY}
+STEPS=${STEPS:-$D_STEPS}; LR=${LR:-$D_LR}; DECAY=${DECAY:-$D_DECAY}; WPA=${WPA:-mlp}
 TAGS="idl_warmup $SIZE $INIT"
 if [ ! -f $OUT/DONE ]; then
   rm -rf $OUT
   $PY scripts/pretrain.py --model microsoft/layoutlmv3-$SIZE $EXTRA --corpus idl --idl_shards 0-26 --idl_val_shards 2999 \
       --val_docs 512 --pages_per_doc 2 --exclude_funsd_test --image_tokenizer dalle --dalle_encoder runs/dalle/encoder.pkl \
-      --head_warmup_steps 1000 --head_lr 1e-3 --max_steps $STEPS --lr $LR --layer_decay $DECAY \
+      --head_warmup_steps 1000 --head_lr 1e-3 --max_steps $STEPS --lr $LR --layer_decay $DECAY --wpa_head $WPA \
       --batch_size 16 --grad_accum 2 --num_workers 12 --eval_every 250 --patience 8 \
       --save_last --tags $TAGS --output_dir $OUT > $OUT.log 2>&1
   cp $OUT/log.json $RES/pretrain_${SIZE}_${INIT}_log.json

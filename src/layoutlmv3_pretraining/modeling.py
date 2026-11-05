@@ -72,11 +72,16 @@ def token_patch_matrix(bbox: torch.Tensor, grid: int = 14, scale: int = 1000) ->
     return m.flatten(-2)
 
 
+DEFAULT_WPA_HEAD = "mlp"
+
+
 class WPAHead(nn.Module):
     """Word-patch alignment classifier (aligned / unaligned) for each text token.
 
-    * ``linear``    : a linear layer on the text token's hidden state
-    * ``mlp``       : a two-layer MLP on the text token's hidden state
+    * ``mlp``       : a two-layer MLP on the text token's hidden state (default; the paper describes WPA with
+                      "a two-layer MLP head")
+    * ``linear``    : a linear layer on the text token's hidden state (the default before; every run in
+                      results/ up to results/screen_v1 and results/idl_warmup used it, see the run registry)
     * ``mlp_patch`` : a two-layer MLP on [text hidden state; mean hidden state of the image patches its box
                       covers]. **Leaky, do not use for pre-training**: a masked patch's hidden state carries the
                       image [MASK] embedding, so the head can read the label directly (a random encoder reaches
@@ -86,7 +91,7 @@ class WPAHead(nn.Module):
 
     VARIANTS = ("linear", "mlp", "mlp_patch")
 
-    def __init__(self, config: LayoutLMv3Config, variant: str = "linear"):
+    def __init__(self, config: LayoutLMv3Config, variant: str = DEFAULT_WPA_HEAD):
         super().__init__()
         assert variant in self.VARIANTS, variant
         self.variant, d = variant, config.hidden_size
@@ -102,6 +107,18 @@ class WPAHead(nn.Module):
             pooled = torch.einsum("btp,bpd->btd", m, patches) / m.sum(-1, keepdim=True).clamp(min=1)
             text = torch.cat([text, pooled], -1)
         return self.net(text)
+
+    @staticmethod
+    def variant_of(state: dict[str, torch.Tensor]) -> str:
+        """The variant that saved head weights (``pretraining_heads.pt``) belong to.
+
+        Heads saved before ``WPAHead`` existed hold the linear layer as ``wpa_head.{weight,bias}``.
+        """
+        if "wpa_head.net.0.weight" in state:
+            w = state["wpa_head.net.0.weight"]
+            return "mlp_patch" if w.shape[1] == 2 * w.shape[0] else "mlp"
+        assert "wpa_head.net.weight" in state or "wpa_head.weight" in state, "no WPA head weights"
+        return "linear"
 
 
 @dataclass
@@ -133,7 +150,7 @@ class LayoutLMv3ForPreTraining(LayoutLMv3PreTrainedModel):
     def __init__(self, config: LayoutLMv3Config, image_vocab_size: int = 512, wpa_head: str | None = None):
         super().__init__(config)
         self.config.image_vocab_size = image_vocab_size
-        self.config.wpa_head = wpa_head or getattr(config, "wpa_head", "linear")
+        self.config.wpa_head = wpa_head or getattr(config, "wpa_head", DEFAULT_WPA_HEAD)
         self.layoutlmv3 = LayoutLMv3ModelWithImageMask(config)
         self.mlm_head = LMHead(config)
         self.mim_head = nn.Sequential(nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps),
@@ -144,7 +161,7 @@ class LayoutLMv3ForPreTraining(LayoutLMv3PreTrainedModel):
 
     @classmethod
     def from_backbone(cls, name_or_path: str, image_vocab_size: int = 512,
-                      random_init: bool = False, wpa_head: str = "linear") -> "LayoutLMv3ForPreTraining":
+                      random_init: bool = False, wpa_head: str = DEFAULT_WPA_HEAD) -> "LayoutLMv3ForPreTraining":
         """Start from a pretrained ``LayoutLMv3Model`` checkpoint (e.g. microsoft/layoutlmv3-base).
 
         The released checkpoints contain only the encoder, so the MLM/MIM/WPA heads (and the image

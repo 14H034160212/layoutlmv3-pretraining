@@ -18,13 +18,15 @@ from pretrain import evaluate, parse_range  # noqa: E402
 from layoutlmv3_pretraining import DalleTokenizer, LayoutLMv3ForPreTraining  # noqa: E402
 from layoutlmv3_pretraining.corpus import IDLPages, NgramBlocklist, resolve_idl_sources  # noqa: E402
 from layoutlmv3_pretraining.data import PretrainingCollator  # noqa: E402
+from layoutlmv3_pretraining.modeling import WPAHead  # noqa: E402
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--backbone", required=True)
     ap.add_argument("--heads", required=True)
-    ap.add_argument("--wpa_head", default="linear")
+    ap.add_argument("--wpa_head", default="auto", choices=["auto", "mlp", "linear", "mlp_patch"],
+                    help="auto: read the variant off the saved head weights")
     ap.add_argument("--dalle_encoder", default="runs/dalle/encoder.pkl")
     ap.add_argument("--val_shards", default="2999")
     ap.add_argument("--val_docs", type=int, default=512)
@@ -41,15 +43,17 @@ def main():
     collate = PretrainingCollator(processor.tokenizer, None, seed=0)
     batches = [collate(val[i:i + a.batch_size]) for i in range(0, len(val), a.batch_size)]
     img_tok = DalleTokenizer.from_pretrained(a.dalle_encoder).to(device)
-    model = LayoutLMv3ForPreTraining.from_backbone(a.backbone, img_tok.vocab_size, wpa_head=a.wpa_head)
     heads = torch.load(a.heads, map_location="cpu", weights_only=True)
+    if a.wpa_head == "auto":
+        a.wpa_head = WPAHead.variant_of(heads)
+    model = LayoutLMv3ForPreTraining.from_backbone(a.backbone, img_tok.vocab_size, wpa_head=a.wpa_head)
     if a.wpa_head == "linear":   # checkpoints from before WPAHead stored the linear layer as wpa_head.{weight,bias}
         heads = {("wpa_head.net." + k.split(".")[-1] if k in ("wpa_head.weight", "wpa_head.bias") else k): v
                  for k, v in heads.items()}
     missing, unexpected = model.load_state_dict(heads, strict=False)
     assert not unexpected and all(k.startswith("layoutlmv3.") for k in missing), (missing, unexpected)
     model.to(device)
-    res = {"backbone": a.backbone, "heads": a.heads, "val_pages": len(val),
+    res = {"backbone": a.backbone, "heads": a.heads, "wpa_head": a.wpa_head, "val_pages": len(val),
            "image_mask_token_from_checkpoint": model.loading_info.get("image_mask_token_from_checkpoint"),
            **evaluate(model, batches, device, img_tok)}
     print(json.dumps(res))

@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import time
 from pathlib import Path
 
@@ -33,6 +34,7 @@ from transformers import LayoutLMv3Processor, get_cosine_schedule_with_warmup
 from layoutlmv3_pretraining import DalleTokenizer, KMeansPatchTokenizer, LayoutLMv3ForPreTraining
 from layoutlmv3_pretraining.corpus import IDLPages, NgramBlocklist, resolve_idl_sources
 from layoutlmv3_pretraining.data import PretrainingCollator, add_mim_labels, encode_documents
+from layoutlmv3_pretraining.modeling import DEFAULT_WPA_HEAD
 from layoutlmv3_pretraining.tracking import RunTracker
 
 
@@ -93,6 +95,13 @@ def save_backbone(model, processor, path: Path):
     processor.save_pretrained(path)
 
 
+def save_train_state(path: Path, **state):
+    """Everything needed to continue training (``--resume``); written atomically so a kill never leaves half a file."""
+    tmp = path.with_suffix(".tmp")
+    torch.save(state, tmp)
+    os.replace(tmp, path)
+
+
 def build_hf_corpus(a, processor):
     raw = load_dataset(a.dataset, split=a.split).shuffle(seed=a.seed)
     enc = raw.map(lambda ex: encode_documents(processor, ex), batched=True, batch_size=16,
@@ -110,7 +119,7 @@ def build_idl_corpus(a, processor):
         exclude = NgramBlocklist(funsd["tokens"], n=5, threshold=0.5)
     common = dict(max_pages_per_doc=a.pages_per_doc, min_words=a.min_words, exclude=exclude)
     train = IDLPages(resolve_idl_sources(parse_range(a.idl_shards), download=not a.idl_stream), processor,
-                     max_pages=a.max_pages, shuffle_buffer=a.shuffle_buffer, repeat=True, seed=a.seed, **common)
+                     max_pages=a.max_pages, shuffle_buffer=a.shuffle_buffer, repeat=True, seed=a.data_seed, **common)
     val_ds = IDLPages(resolve_idl_sources(parse_range(a.idl_val_shards), download=not a.idl_stream), processor,
                       max_pages=a.val_docs, **common)
     val = list(val_ds)
@@ -132,7 +141,7 @@ def build_idl_corpus(a, processor):
     return train, val, fit_images(), info
 
 
-def main():
+def build_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", default="microsoft/layoutlmv3-base")
     ap.add_argument("--output_dir", required=True)
@@ -170,9 +179,10 @@ def main():
                     help="optimiser steps that train only the new parameters (heads, image [MASK] token) "
                          "with the encoder frozen, before joint training; not counted in --max_steps")
     ap.add_argument("--head_lr", type=float, default=1e-3, help="peak lr during the head warm-up (cosine)")
-    ap.add_argument("--wpa_head", choices=["linear", "mlp", "mlp_patch"], default="linear",
-                    help="WPA classifier: linear or 2-layer MLP on the text token; mlp_patch (MLP on [text; covered "
-                         "patches]) leaks the label through the [MASK] patch embedding: probes only")
+    ap.add_argument("--wpa_head", choices=["mlp", "linear", "mlp_patch"], default=DEFAULT_WPA_HEAD,
+                    help="WPA classifier: 2-layer MLP on the text token (default, as in the paper) or linear (the "
+                         "default before scale-v1); mlp_patch (MLP on [text; covered patches]) leaks the label "
+                         "through the [MASK] patch embedding: probes only")
     ap.add_argument("--mim_weight", type=float, default=1.0,
                     help="weight of the MIM loss in training (0: MLM + WPA only; images are still masked for WPA)")
     ap.add_argument("--freeze_layers", type=int, default=0,
@@ -186,9 +196,19 @@ def main():
     ap.add_argument("--patience", type=int, default=0,
                     help="stop after this many evaluations without a lower validation loss (0: never)")
     ap.add_argument("--save_last", action="store_true", help="also save the final step to last_backbone/")
+    ap.add_argument("--state_every", type=int, default=0,
+                    help="save model, optimiser and scheduler state to output_dir/train_state.pt every N steps "
+                         "(0: never); removed when the run finishes")
+    ap.add_argument("--resume", action="store_true",
+                    help="continue from output_dir/train_state.pt if it exists. The data stream restarts with a "
+                         "new seed, so a resumed run does not see exactly the pages an uninterrupted run would")
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--tags", nargs="*", default=[], help="free-form tags for experiments/registry.jsonl")
-    a = ap.parse_args()
+    return ap
+
+
+def main():
+    a = build_parser().parse_args()
 
     tags = list(a.tags)
     if a.head_warmup_steps and a.max_steps == 0:
@@ -201,6 +221,12 @@ def train(a, run):
     torch.manual_seed(a.seed)
     out_dir = Path(a.output_dir); out_dir.mkdir(parents=True, exist_ok=True)
     device = "cuda" if torch.cuda.is_available() else "cpu"
+    state_path = out_dir / "train_state.pt"
+    state = torch.load(state_path, map_location="cpu", weights_only=False) if a.resume and state_path.exists() else None
+    a.data_seed = a.seed  # data order and masks; a resumed run draws a new order rather than replaying the first pages
+    if state is not None:
+        a.data_seed = a.seed + state["step"]
+        print(f"resuming from step {state['step']} (data seed {a.data_seed})", flush=True)
     processor = LayoutLMv3Processor.from_pretrained(a.model, apply_ocr=False)
 
     t0 = time.time()
@@ -233,7 +259,7 @@ def train(a, run):
     (out_dir / "run_info.json").write_text(json.dumps(info, indent=1))
     if a.gradient_checkpointing:
         model.gradient_checkpointing_enable(gradient_checkpointing_kwargs={"use_reentrant": False})
-    collate = PretrainingCollator(processor.tokenizer, None, seed=a.seed)
+    collate = PretrainingCollator(processor.tokenizer, None, seed=a.data_seed)
     train_loader = DataLoader(train, batch_size=a.batch_size, drop_last=True, collate_fn=collate,
                               shuffle=a.corpus == "hf", num_workers=a.num_workers,
                               persistent_workers=a.num_workers > 0, pin_memory=device == "cuda",
@@ -263,14 +289,24 @@ def train(a, run):
         opt, sched = joint_optimiser()
     total_steps = warmup + a.max_steps
 
-    log = [{"step": 0, "phase": "head_warmup" if warmup else "joint",
-            **evaluate(model, val_batches, device, img_tok)}]
-    print(json.dumps(log[-1]), flush=True)
-    run.outputs.update(log=str(out_dir / "log.json"), run_info=str(out_dir / "run_info.json"))
     reference = model.checkpoint_state() if not a.random_init else None
-    run.metrics["step0"] = log[0]
+    run.outputs.update(log=str(out_dir / "log.json"), run_info=str(out_dir / "run_info.json"))
     best, bad_evals, step, micro, t0 = float("inf"), 0, 0, 0, time.time()
-    done = False
+    if state is None:
+        log = [{"step": 0, "phase": "head_warmup" if warmup else "joint",
+                **evaluate(model, val_batches, device, img_tok)}]
+        print(json.dumps(log[-1]), flush=True)
+    else:
+        model.load_state_dict(state["model"])
+        step, best, bad_evals, log = state["step"], state["best"], state["bad_evals"], state["log"]
+        t0 -= 60 * state["minutes"]
+        if warmup and step >= warmup:
+            opt, sched = joint_optimiser()
+        opt.load_state_dict(state["optimizer"]); sched.load_state_dict(state["scheduler"])
+        run.metrics["resumed_from_steps"] = state.get("resumed_from_steps", []) + [step]
+        del state
+    run.metrics["step0"] = log[0]
+    done = step >= total_steps
     while not done:
         for batch in train_loader:
             batch = to_device(batch, device, img_tok)
@@ -318,6 +354,11 @@ def train(a, run):
             if step == warmup:                       # phase 2: joint training
                 opt, sched = joint_optimiser()
                 micro = 0
+            if a.state_every and step % a.state_every == 0 and step < total_steps and not done:
+                save_train_state(state_path, model=model.state_dict(), optimizer=opt.state_dict(),
+                                 scheduler=sched.state_dict(), step=step, best=best, bad_evals=bad_evals, log=log,
+                                 minutes=round((time.time() - t0) / 60, 2),
+                                 resumed_from_steps=run.metrics.get("resumed_from_steps", []))
             if step >= total_steps:
                 done = True
             if done:
@@ -325,6 +366,7 @@ def train(a, run):
 
     if a.save_last:
         save_backbone(model, processor, out_dir / "last_backbone")
+    state_path.unlink(missing_ok=True)
     if reference is not None:  # drift of the final weights from the starting checkpoint
         drift = {"final_step": step, **model.encoder_drift(reference)}
         (out_dir / "drift.json").write_text(json.dumps(drift, indent=1))

@@ -71,3 +71,18 @@ def test_to_jsonable():
     out = to_jsonable({"p": Path("/a"), "t": torch.tensor(2.5), "n": np.int64(3), "s": {1}, 1: (1, 2)})
     assert out == {"p": "/a", "t": 2.5, "n": 3, "s": [1], "1": [1, 2]}
     json.dumps(out)
+
+
+def test_list_runs_reports_the_wpa_head_of_old_and_new_records():
+    """The default WPA head changed from linear to mlp; records without the field predate the flag (linear)."""
+    import importlib.util
+    path = Path(__file__).resolve().parents[1] / "scripts" / "list_runs.py"
+    spec = importlib.util.spec_from_file_location("list_runs", path)
+    list_runs = importlib.util.module_from_spec(spec); spec.loader.exec_module(list_runs)
+    base = {"run_id": "r", "kind": "pretrain", "status": "completed", "tags": []}
+    assert list_runs.wpa_head_of({**base, "config": None}) == "linear"                       # backfilled, no config
+    assert list_runs.wpa_head_of({**base, "config": {"model": "m"}}) == "linear"
+    assert list_runs.wpa_head_of({**base, "config": {"wpa_head": "linear"}}) == "linear"
+    assert list_runs.wpa_head_of({**base, "config": {"wpa_head": "mlp"}}) == "mlp"
+    assert "wpa=mlp " in " ".join(list_runs.row({**base, "config": {"wpa_head": "mlp", "image_tokenizer": "dalle"}}))
+    assert "wpa=linear " in " ".join(list_runs.row({**base, "config": None}))

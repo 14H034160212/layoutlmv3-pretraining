@@ -18,6 +18,14 @@ def fmt(x, nd=3):
     return "-" if x is None else (f"{x:.{nd}f}" if isinstance(x, float) else str(x))
 
 
+def wpa_head_of(r):
+    """WPA head of a pre-training record. The default changed from linear to mlp (scale-v1); every record written
+    since --wpa_head existed stores the head explicitly, and the only ones without it (backfilled runs from before
+    the flag) all used the linear head, so a missing value means linear, never the current default."""
+    c, a = r.get("config") or {}, r.get("args") or {}
+    return c.get("wpa_head") or a.get("wpa_head") or "linear"
+
+
 def row(r):
     c, m, a = r.get("config") or {}, r.get("metrics") or {}, r.get("args") or {}
     date = (r.get("end_utc") or r.get("start_utc") or "")[:16].replace("T", " ") or "-"
@@ -36,7 +44,7 @@ def row(r):
         tok = c.get("image_tokenizer", "-")
         if tok == "dalle" and "dvae_doc" in str(c.get("image_tokenizer_path")):
             tok = "dalle_doc"
-        variant = f"wpa={c.get('wpa_head', '-')} mim={tok}"
+        variant = f"wpa={wpa_head_of(r)} mim={tok}"
         if c.get("mim_weight", 1.0) != 1.0:
             variant += f" mim_w={c['mim_weight']}"
         if c.get("freeze_layers"):

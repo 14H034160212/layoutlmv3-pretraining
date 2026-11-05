@@ -12,7 +12,7 @@ It is an independent re-implementation from the paper, not Microsoft's original 
 |---|---|---|
 | **MLM** | Mask 30% of text tokens with span masking, span lengths ~ Poisson(λ=3) | `masking.span_mask`, plus an `LMHead` tied to the word embeddings |
 | **MIM** | Mask 40% of image patches with blockwise masking; predict discrete visual tokens from an image tokenizer | `masking.blockwise_mask`; masked patch embeddings are replaced by a learned `[MASK]` embedding before position embeddings are added; a linear head predicts the tokens |
-| **WPA** | For each *unmasked* text token, predict whether its image patches are also unmasked (aligned) or not (unaligned) | `masking.wpa_labels`, which maps each token's 0-1000 box to the 14×14 patch grid, plus a binary head |
+| **WPA** | For each *unmasked* text token, predict whether its image patches are also unmasked (aligned) or not (unaligned) | `masking.wpa_labels`, which maps each token's 0-1000 box to the 14×14 patch grid, plus a two-layer MLP head on the text token (the paper: "a two-layer MLP head"; see [WPA](#evidence-per-objective-frozen-encoder-probes)) |
 
 The total loss is `MLM + MIM + WPA`, and all three terms back-propagate into the shared encoder. `tests/test_pretraining.py` checks this explicitly, because it is an easy thing to break: for example, adding a loss with `.item()` silently removes it from the gradient.
 
@@ -31,7 +31,7 @@ Any object with `vocab_size` and `encode(pixel_values) -> LongTensor[B, 196]` ca
 
 ```bash
 pip install -e ".[dev]"
-pytest tests                    # 32 tests, CPU, ~10 seconds (one is skipped without the DALL-E weights)
+pytest tests                    # 35 tests, CPU, ~10 seconds (one is skipped without the DALL-E weights)
 
 # continued pre-training on FUNSD train (words and boxes from the dataset, no OCR), k-means MIM targets
 python scripts/pretrain.py --output_dir runs/funsd_pt --max_steps 3000
@@ -64,7 +64,8 @@ python scripts/finetune_funsd.py --task cord  --model runs/idl_dalle_base/backbo
 | `--save_last` | also keep the final step in `last_backbone/` |
 | `--head_warmup_steps N`, `--head_lr` | first train only the parameters the released checkpoints lack (the three heads and the image `[MASK]` embedding) for `N` steps with the encoder frozen, then train jointly; see [Head warm-up](#head-warm-up-the-released-encoder-starts-from-a-good-point) |
 | `--layer_decay d`, `--new_params_lr` | layer-wise learning-rate decay (BEiT-style: layer *i* of *L* gets `lr * d^(L-i)`, embeddings `lr * d^(L+1)`), and the heads' lr after the warm-up (default `--lr`) |
-| `--wpa_head linear\|mlp\|mlp_patch` | WPA classifier: linear (default) or two-layer MLP on the text token; `mlp_patch` (MLP on [text token; mean of its covered patches]) leaks the label through the `[MASK]` patch embedding and is only for reproducing that probe |
+| `--wpa_head mlp\|linear\|mlp_patch` | WPA classifier: two-layer MLP on the text token (default, as the paper describes) or a single linear layer (the default until the [scale-up](#scaling-the-continued-pre-training-data); every earlier result below used it); `mlp_patch` (MLP on [text token; mean of its covered patches]) leaks the label through the `[MASK]` patch embedding and is only for reproducing that probe |
+| `--state_every N`, `--resume` | save model, optimiser and scheduler state every `N` steps and continue from it after an interruption (the data stream restarts with a new seed) |
 | `--random_init` | control: the checkpoint's config with random weights |
 | `--tags ...` | tags for the run registry (see [Run registry](#run-registry)) |
 
@@ -78,7 +79,9 @@ FUNSD itself comes from RVL-CDIP, which was drawn from the same tobacco-industry
 
 ## Results
 
-These are small-scale experiments, not a reproduction of the paper: the corpus is about 42k pages rather than 11M, the MIM targets come from a natural-image dVAE rather than the paper's document dVAE, and the training budget is a few GPU hours.
+These are small-scale experiments, not a reproduction of the paper: the corpus is 42k-400k pages rather than 11M, the MIM targets come from a natural-image dVAE rather than the paper's document dVAE, and the training budget is a few GPU hours per run.
+
+**WPA head.** Every run in the sections below up to and including the recipe screen and the large warm-up run used a **linear** WPA head, which was the default then (the screen's variant B and the `mlp` probes are the exceptions). The default is now the paper's two-layer MLP on the text token (`--wpa_head mlp`). The screen found the two heads equivalent downstream: B (MLP) minus A (linear) was −0.26 F1 points, within the 0.6-point noise threshold. Each run's head is recorded in the run registry (`wpa=` column of `scripts/list_runs.py`). The run scripts now default to `WPA=mlp`, so pass `WPA=linear` to reproduce the earlier runs exactly.
 
 ### Continued pre-training on 42k IDL pages with dVAE targets
 
@@ -218,7 +221,7 @@ To see how much of each objective the released encoder already supports, and whe
 | WPA | 2-layer MLP on the text token: balanced accuracy / AUC | **0.771 / 0.904** | 0.546 / 0.686 | 0.5 / 0.5 |
 | WPA | *leaky probe*: 2-layer MLP on [text token; mean of its covered patches] | 0.985 / 0.999 | 0.9997 / 1.000 | 0.5 / 0.5 |
 
-**WPA.** The paper (Sec. 2.3, objective III) describes WPA as predicting, for each *unmasked* text token, whether its corresponding image patches are masked, with "a two-layer MLP head that inputs contextual text and image" and a binary cross-entropy loss. Our labels follow that description: masked text tokens and special tokens are ignored, and a token is "unaligned" if any patch its box overlaps is masked (the paper does not say how tokens covering several patches are handled). Two-way softmax cross-entropy is equivalent to binary cross-entropy. The head used so far is a single linear layer on the text token; `--wpa_head mlp` adds a two-layer MLP on the text token. WPA is reported as balanced accuracy and AUC because 74% of the labels are "aligned".
+**WPA.** The paper (Sec. 2.3, objective III) describes WPA as predicting, for each *unmasked* text token, whether its corresponding image patches are masked, with "a two-layer MLP head that inputs contextual text and image" and a binary cross-entropy loss. Our labels follow that description: masked text tokens and special tokens are ignored, and a token is "unaligned" if any patch its box overlaps is masked (the paper does not say how tokens covering several patches are handled). Two-way softmax cross-entropy is equivalent to binary cross-entropy. The runs up to the recipe screen used a single linear layer on the text token. `--wpa_head mlp`, a two-layer MLP on the text token, is now the default because it matches the paper's description. WPA is reported as balanced accuracy and AUC because 74% of the labels are "aligned".
 
 - **Text-only heads (the meaningful comparison).** The frozen released encoder carries alignment information in its text-token states. The random encoder gives AUC 0.65-0.69 (presumably from the box alone, e.g. large boxes cover more patches and are more often "unaligned"; this was not checked). The released encoder gives AUC 0.816 with a linear head and 0.904 with the two-layer MLP (balanced accuracy 0.664 and 0.771). This is consistent with the released encoder having been trained with a WPA-like objective, but it does not identify the paper's head.
 - **`--wpa_head mlp_patch` is a leaky probe, not evidence and not the paper's design.** It feeds the head the text token together with the mean hidden state of the patches the token's box covers. With a *random* encoder it reaches balanced accuracy 0.9997 and AUC 1.000, slightly above the released encoder. A masked patch's hidden state is dominated by the learned image `[MASK]` embedding, so the head can read "is my patch masked" (which is the label) directly, without knowing anything about word-patch alignment. It is kept in the code only so that this shortcut can be reproduced; it should not be used for pre-training, where it would make WPA trivial. The paper's "inputs contextual text and image" is not specific enough to tell how its head avoids this shortcut, if it does.
