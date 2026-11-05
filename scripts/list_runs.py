@@ -33,7 +33,14 @@ def row(r):
         best = m.get("best_joint") or m.get("after_head_warmup") or m.get("final") or {}
         head = (f"mlm {fmt(best.get('mlm_acc'))} mim {fmt(best.get('mim_acc'))} wpa {fmt(best.get('wpa_acc'))}"
                 + (f" auc {fmt(best.get('wpa_auc'))}" if best.get("wpa_auc") is not None else ""))
-        variant = f"wpa={c.get('wpa_head', '-')} mim={c.get('image_tokenizer', '-')}"
+        tok = c.get("image_tokenizer", "-")
+        if tok == "dalle" and "dvae_doc" in str(c.get("image_tokenizer_path")):
+            tok = "dalle_doc"
+        variant = f"wpa={c.get('wpa_head', '-')} mim={tok}"
+        if c.get("mim_weight", 1.0) != 1.0:
+            variant += f" mim_w={c['mim_weight']}"
+        if c.get("freeze_layers"):
+            variant += f" freeze={c['freeze_layers']}"
         init, model = c.get("init", "-"), c.get("model", a.get("model", "-"))
     elif r["kind"].startswith("finetune_") and r["kind"] != "finetune_dvae":
         hp = f"steps={c.get('steps')} lr={fmt(c.get('lr'), 6)} bs={c.get('batch_size')} seeds={len(c.get('seeds') or [])}"
@@ -44,6 +51,9 @@ def row(r):
         b, af = m.get("before") or {}, m.get("after") or {}
         head = f"PSNR {fmt(b.get('psnr'), 2)} -> {fmt(af.get('psnr'), 2)}" if b else "-"
         variant, init, model = r["kind"], "-", "dall-e dVAE"
+    vtag = [t for t in r.get("tags", []) if t.startswith("variant-")]
+    if vtag:
+        variant = f"[{vtag[0][8:]}] {variant}"
     status = r["status"] + ("*" if r.get("backfilled") else "")
     return [r["run_id"], date, status, r["kind"], str(model).replace("microsoft/", ""), init, variant, hp, head]
 

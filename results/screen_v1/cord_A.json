@@ -1,0 +1,20 @@
+{
+ "task": "cord",
+ "model": "runs/screen_v1/A/backbone",
+ "steps": 1000,
+ "lr": 5e-05,
+ "batch_size": 4,
+ "seeds": [
+  1,
+  2,
+  3
+ ],
+ "f1": [
+  0.9255,
+  0.9427,
+  0.9322
+ ],
+ "mean": 0.9335,
+ "std": 0.0087,
+ "minutes": 8.6
+}

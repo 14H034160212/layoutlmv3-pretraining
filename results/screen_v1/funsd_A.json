@@ -1,0 +1,20 @@
+{
+ "task": "funsd",
+ "model": "runs/screen_v1/A/backbone",
+ "steps": 1000,
+ "lr": 1e-05,
+ "batch_size": 2,
+ "seeds": [
+  1,
+  2,
+  3
+ ],
+ "f1": [
+  0.8973,
+  0.9006,
+  0.8963
+ ],
+ "mean": 0.8981,
+ "std": 0.0022,
+ "minutes": 4.9
+}

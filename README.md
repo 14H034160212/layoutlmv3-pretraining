@@ -31,7 +31,7 @@ Any object with `vocab_size` and `encode(pixel_values) -> LongTensor[B, 196]` ca
 
 ```bash
 pip install -e ".[dev]"
-pytest tests                    # 29 tests, CPU, ~10 seconds (one is skipped without the DALL-E weights)
+pytest tests                    # 32 tests, CPU, ~10 seconds (one is skipped without the DALL-E weights)
 
 # continued pre-training on FUNSD train (words and boxes from the dataset, no OCR), k-means MIM targets
 python scripts/pretrain.py --output_dir runs/funsd_pt --max_steps 3000
@@ -174,7 +174,7 @@ Per-seed differences (warm-up recipe minus original): FUNSD +1.39, −0.12, +0.4
 
 The from-scratch control shows how far ahead continued pre-training starts: with the same 7,000 steps on 42k pages, a randomly initialised model reaches FUNSD F1 0.40, against 0.895 for the released checkpoint before any continued training.
 
-**Not done.** `layoutlmv3-large` was not rerun with this recipe: because base shows no downstream gain, the larger run (≈3 h pre-training plus ≈2.5 h fine-tuning) was left for a decision. Per-run logs, per-seed scores and the registry entries are in `results/idl_warmup/` and `experiments/registry.jsonl`.
+**Large.** `layoutlmv3-large` has not been rerun with this recipe yet. The recipe screen below found no clearly better variant, so it is prepared unchanged (`GPU=3 SIZE=large INIT=pretrained ./scripts/run_idl_warmup_experiment.sh`: 1,000 head-only + 4,000 joint steps, lr 1e-5, layer decay 0.95). Per-run logs, per-seed scores and the registry entries are in `results/idl_warmup/` and `experiments/registry.jsonl`.
 
 ### Evidence per objective: frozen-encoder probes
 
@@ -209,6 +209,24 @@ To see how much of each objective the released encoder already supports, and whe
 *Left: the 112 × 112 view; middle: DALL-E dVAE; right: fine-tuned. Text lines are reconstructed as lines rather than grey blocks, but at this resolution no tokenizer can preserve glyphs.* Reconstruction improves by 2.4 dB and code usage stays about the same (fewer distinct codes, a flatter distribution). This is closer to the paper's setting, not the same: a 112 × 112 view of the page, 42k rather than 42M training pages, and a short fine-tune.
 
 **Summary of the probes.** MLM gives the strongest evidence that the checkpoint and the text-side pipeline are right. For WPA, the released encoder's text-token states carry alignment information that a two-layer MLP reads clearly better than a linear head (AUC 0.904 vs 0.816; random encoder ≤ 0.69). Feeding the head the covered patches leaks the label. For MIM, all three target types are readable above chance from the released encoder, and the document dVAE reconstructs IDL pages better (+2.4 dB) without changing how readable its codes are. None of the variants moved the frozen starting point enough to justify another full continued pre-training run within the compute set aside for this (≈ 4 GPU-hours, already used by the dVAE fine-tune and the 10 probes), so none was run. The probes do not show equivalence with Microsoft's code or tokenizer.
+
+### Recipe screen before scaling to large
+
+Before spending large-model compute, six variants of the head warm-up recipe were compared on base with a shortened schedule (1,000 head-only + 2,500 joint steps, same data order and seed), each fine-tuned on FUNSD and CORD with seeds 1-3 and paired by seed against the original checkpoint. The variants, the scoring and the decision rule were fixed and committed before any run started (`results/screen_v1/decision_rule.md`): a variant replaces the current recipe A only if its mean paired gain (over the 6 task × seed pairs) beats A's by more than **0.6 F1 points** (about 2 standard errors; the per-seed SD of paired differences between checkpoints is 0.75 points) and it is ahead on both tasks.
+
+| | variant | FUNSD | CORD | gain vs original (FUNSD / CORD / mean) | vs A | MLM acc | MIM acc | WPA AUC | encoder drift |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| A | current recipe: lr 2e-5, layer decay 0.9, linear WPA, DALL-E targets | 89.81 | 93.35 | +0.39 / −0.34 / +0.03 | | 0.528 | 0.191 | 0.998 | 0.91% |
+| B | two-layer MLP WPA head | 89.61 | 93.03 | +0.20 / −0.66 / −0.23 | −0.26 | 0.528 | 0.192 | 0.999 | 0.90% |
+| C | no MIM loss | 89.11 | 93.27 | −0.30 / −0.42 / −0.36 | −0.38 | 0.529 | (untrained) | 0.999 | 0.76% |
+| D | document-fine-tuned dVAE targets | 89.80 | 93.72 | +0.38 / +0.03 / +0.21 | +0.18 | 0.529 | 0.195 | 0.998 | 0.93% |
+| E | joint lr 1e-5 | 89.38 | 94.00 | −0.03 / +0.32 / +0.14 | +0.12 | 0.525 | 0.174 | 0.996 | 0.57% |
+| F | embeddings + layers 0-5 frozen | 89.94 | 93.50 | +0.53 / −0.18 / +0.17 | +0.15 | 0.522 | 0.187 | 0.994 | 0.75% |
+| | original `microsoft/layoutlmv3-base` (seeds 1-3) | 89.41 | 93.69 | | | | | | 0 |
+
+*F1 × 100, mean of seeds 1-3. Validation metrics are those of the selected (lowest-validation-loss) checkpoint. Encoder drift is the relative L2 change of all checkpoint parameters from the released weights (`drift.json`; F leaves the embeddings and bottom layers exactly unchanged). Every run is in the registry under the tag `screen-v1` (`python scripts/list_runs.py --tag screen-v1`); `python scripts/analyze_screen.py` reproduces the table and the decision.*
+
+All six variants are within −0.36 to +0.21 points of the original checkpoint (paired p = 0.29-0.94) and within −0.38 to +0.18 of A, well inside the 0.6-point threshold. By the pre-registered rule **the current recipe (A) is kept** (B's score is below A's, so its tie exception does not apply). With 3 seeds × 2 tasks this screen can only detect differences of about 0.6 points or more, so the conclusion is "no variant is clearly better at this resolution", not "no variant is better". Dropping MIM (C) did not help CORD, so the mismatched DALL-E targets are not visibly harming the visual features at this scale. Lower lr (E) and freezing the bottom half (F) cut the encoder drift by 20-40% without a measurable downstream effect. The screen used about 5 GPU-hours.
 
 ### Earlier sanity run: FUNSD train only (k-means targets)
 

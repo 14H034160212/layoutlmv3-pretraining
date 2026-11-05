@@ -1,0 +1,124 @@
+{
+ "run_id": "20261105T021756Z-finetune_cord-8c393c",
+ "kind": "finetune_cord",
+ "status": "completed",
+ "backfilled": false,
+ "tags": [
+  "screen-v1",
+  "variant-D"
+ ],
+ "start_utc": "2026-11-05T02:17:56+00:00",
+ "end_utc": "2026-11-05T02:26:35+00:00",
+ "git": {
+  "commit": "21474b74ca8d32118e56f7bf9a38015daa5beb1b",
+  "dirty": true,
+  "diff_sha256": "2931f452438a003d4be0d92dad2f13f1a68d456ac26699c4bc28f39266f15509",
+  "untracked": [
+   "results/screen_v1/cord_A.json",
+   "results/screen_v1/cord_B.json",
+   "results/screen_v1/drift_A.json",
+   "results/screen_v1/drift_B.json",
+   "results/screen_v1/drift_C.json",
+   "results/screen_v1/drift_D.json",
+   "results/screen_v1/funsd_A.json",
+   "results/screen_v1/funsd_B.json",
+   "results/screen_v1/funsd_C.json",
+   "results/screen_v1/funsd_D.json",
+   "results/screen_v1/pretrain_A_log.json",
+   "results/screen_v1/pretrain_A_run_info.json",
+   "results/screen_v1/pretrain_A_run_record.json",
+   "results/screen_v1/pretrain_B_log.json",
+   "results/screen_v1/pretrain_B_run_info.json",
+   "results/screen_v1/pretrain_B_run_record.json",
+   "results/screen_v1/pretrain_C_log.json",
+   "results/screen_v1/pretrain_C_run_info.json",
+   "results/screen_v1/pretrain_C_run_record.json",
+   "results/screen_v1/pretrain_D_log.json",
+   "results/screen_v1/pretrain_D_run_info.json",
+   "results/screen_v1/pretrain_D_run_record.json",
+   "results/screen_v1/records/",
+   "results/screen_v1/summary.json",
+   "scripts/analyze_screen.py"
+  ]
+ },
+ "command": "python scripts/finetune_funsd.py --task cord --lr 5e-5 --model runs/screen_v1/D/backbone --seeds 1 2 3 --tags screen-v1 variant-D --out results/screen_v1/cord_D.json",
+ "argv": [
+  "scripts/finetune_funsd.py",
+  "--task",
+  "cord",
+  "--lr",
+  "5e-5",
+  "--model",
+  "runs/screen_v1/D/backbone",
+  "--seeds",
+  "1",
+  "2",
+  "3",
+  "--tags",
+  "screen-v1",
+  "variant-D",
+  "--out",
+  "results/screen_v1/cord_D.json"
+ ],
+ "cwd": "/data/qbao775/layoutlmv3-pretraining",
+ "args": {
+  "model": "runs/screen_v1/D/backbone",
+  "task": "cord",
+  "seeds": [
+   1,
+   2,
+   3
+  ],
+  "steps": null,
+  "lr": 5e-05,
+  "batch_size": null,
+  "out": "results/screen_v1/cord_D.json",
+  "tags": [
+   "screen-v1",
+   "variant-D"
+  ]
+ },
+ "config": {
+  "task": "cord",
+  "model": "runs/screen_v1/D/backbone",
+  "seeds": [
+   1,
+   2,
+   3
+  ],
+  "steps": 1000,
+  "lr": 5e-05,
+  "batch_size": 4,
+  "dataset": "naver-clova-ix/cord-v2"
+ },
+ "environment": {
+  "python": "3.11.7",
+  "hostname": "hgx2.novalocal",
+  "cuda_visible_devices": "4",
+  "torch": "2.6.0+cu124",
+  "cuda": "12.4",
+  "gpu": [
+   "NVIDIA A100-SXM4-80GB"
+  ],
+  "transformers": "4.57.6"
+ },
+ "outputs": {
+  "results": "/data/qbao775/layoutlmv3-pretraining/results/screen_v1/cord_D.json"
+ },
+ "metrics": {
+  "per_seed": {
+   "1": 0.933,
+   "2": 0.934,
+   "3": 0.9445
+  },
+  "f1": [
+   0.933,
+   0.934,
+   0.9445
+  ],
+  "mean": 0.9372,
+  "std": 0.0064,
+  "minutes": 8.6
+ },
+ "error": null
+}

@@ -1,0 +1,136 @@
+{
+ "run_id": "20261105T030845Z-finetune_cord-cada03",
+ "kind": "finetune_cord",
+ "status": "completed",
+ "backfilled": false,
+ "tags": [
+  "screen-v1",
+  "variant-E"
+ ],
+ "start_utc": "2026-11-05T03:08:45+00:00",
+ "end_utc": "2026-11-05T03:17:25+00:00",
+ "git": {
+  "commit": "21474b74ca8d32118e56f7bf9a38015daa5beb1b",
+  "dirty": true,
+  "diff_sha256": "9708507144b55e117cf534aa663dc0198c911e1450c0b1da66de0c7d94d25b12",
+  "untracked": [
+   "results/screen_v1/cord_A.json",
+   "results/screen_v1/cord_B.json",
+   "results/screen_v1/cord_C.json",
+   "results/screen_v1/cord_D.json",
+   "results/screen_v1/drift_A.json",
+   "results/screen_v1/drift_B.json",
+   "results/screen_v1/drift_C.json",
+   "results/screen_v1/drift_D.json",
+   "results/screen_v1/drift_E.json",
+   "results/screen_v1/drift_F.json",
+   "results/screen_v1/funsd_A.json",
+   "results/screen_v1/funsd_B.json",
+   "results/screen_v1/funsd_C.json",
+   "results/screen_v1/funsd_D.json",
+   "results/screen_v1/funsd_E.json",
+   "results/screen_v1/funsd_F.json",
+   "results/screen_v1/pretrain_A_log.json",
+   "results/screen_v1/pretrain_A_run_info.json",
+   "results/screen_v1/pretrain_A_run_record.json",
+   "results/screen_v1/pretrain_B_log.json",
+   "results/screen_v1/pretrain_B_run_info.json",
+   "results/screen_v1/pretrain_B_run_record.json",
+   "results/screen_v1/pretrain_C_log.json",
+   "results/screen_v1/pretrain_C_run_info.json",
+   "results/screen_v1/pretrain_C_run_record.json",
+   "results/screen_v1/pretrain_D_log.json",
+   "results/screen_v1/pretrain_D_run_info.json",
+   "results/screen_v1/pretrain_D_run_record.json",
+   "results/screen_v1/pretrain_E_log.json",
+   "results/screen_v1/pretrain_E_run_info.json",
+   "results/screen_v1/pretrain_E_run_record.json",
+   "results/screen_v1/pretrain_F_log.json",
+   "results/screen_v1/pretrain_F_run_info.json",
+   "results/screen_v1/pretrain_F_run_record.json",
+   "results/screen_v1/records/",
+   "results/screen_v1/summary.json",
+   "scripts/analyze_screen.py"
+  ]
+ },
+ "command": "python scripts/finetune_funsd.py --task cord --lr 5e-5 --model runs/screen_v1/E/backbone --seeds 1 2 3 --tags screen-v1 variant-E --out results/screen_v1/cord_E.json",
+ "argv": [
+  "scripts/finetune_funsd.py",
+  "--task",
+  "cord",
+  "--lr",
+  "5e-5",
+  "--model",
+  "runs/screen_v1/E/backbone",
+  "--seeds",
+  "1",
+  "2",
+  "3",
+  "--tags",
+  "screen-v1",
+  "variant-E",
+  "--out",
+  "results/screen_v1/cord_E.json"
+ ],
+ "cwd": "/data/qbao775/layoutlmv3-pretraining",
+ "args": {
+  "model": "runs/screen_v1/E/backbone",
+  "task": "cord",
+  "seeds": [
+   1,
+   2,
+   3
+  ],
+  "steps": null,
+  "lr": 5e-05,
+  "batch_size": null,
+  "out": "results/screen_v1/cord_E.json",
+  "tags": [
+   "screen-v1",
+   "variant-E"
+  ]
+ },
+ "config": {
+  "task": "cord",
+  "model": "runs/screen_v1/E/backbone",
+  "seeds": [
+   1,
+   2,
+   3
+  ],
+  "steps": 1000,
+  "lr": 5e-05,
+  "batch_size": 4,
+  "dataset": "naver-clova-ix/cord-v2"
+ },
+ "environment": {
+  "python": "3.11.7",
+  "hostname": "hgx2.novalocal",
+  "cuda_visible_devices": "3",
+  "torch": "2.6.0+cu124",
+  "cuda": "12.4",
+  "gpu": [
+   "NVIDIA A100-SXM4-80GB"
+  ],
+  "transformers": "4.57.6"
+ },
+ "outputs": {
+  "results": "/data/qbao775/layoutlmv3-pretraining/results/screen_v1/cord_E.json"
+ },
+ "metrics": {
+  "per_seed": {
+   "1": 0.9358,
+   "2": 0.9355,
+   "3": 0.9488
+  },
+  "f1": [
+   0.9358,
+   0.9355,
+   0.9488
+  ],
+  "mean": 0.94,
+  "std": 0.0076,
+  "minutes": 8.6
+ },
+ "error": null
+}
