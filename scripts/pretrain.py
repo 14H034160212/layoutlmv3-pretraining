@@ -173,6 +173,10 @@ def main():
     ap.add_argument("--wpa_head", choices=["linear", "mlp", "mlp_patch"], default="linear",
                     help="WPA classifier: linear or 2-layer MLP on the text token; mlp_patch (MLP on [text; covered "
                          "patches]) leaks the label through the [MASK] patch embedding: probes only")
+    ap.add_argument("--mim_weight", type=float, default=1.0,
+                    help="weight of the MIM loss in training (0: MLM + WPA only; images are still masked for WPA)")
+    ap.add_argument("--freeze_layers", type=int, default=0,
+                    help="during joint training keep the embeddings and the bottom N transformer layers frozen")
     ap.add_argument("--random_init", action="store_true",
                     help="control: use --model's config but random weights (pre-training from scratch)")
     ap.add_argument("--warmup_ratio", type=float, default=0.05)
@@ -218,7 +222,8 @@ def train(a, run):
         train_shards=a.idl_shards if a.corpus == "idl" else None, val_shards=a.idl_val_shards if a.corpus == "idl" else None,
         dataset=a.dataset if a.corpus == "hf" else None, seed=a.seed, head_warmup_steps=a.head_warmup_steps,
         head_lr=a.head_lr, max_steps=a.max_steps, lr=a.lr, layer_decay=a.layer_decay,
-        effective_batch=a.batch_size * a.grad_accum, corpus_info={k: v for k, v in info.items() if k != "args"})
+        effective_batch=a.batch_size * a.grad_accum, mim_weight=a.mim_weight, freeze_layers=a.freeze_layers,
+        corpus_info={k: v for k, v in info.items() if k != "args"})
 
     model = LayoutLMv3ForPreTraining.from_backbone(a.model, img_tok.vocab_size, random_init=a.random_init,
                                                  wpa_head=a.wpa_head).to(device)
@@ -239,8 +244,11 @@ def train(a, run):
 
     def joint_optimiser():
         model.set_encoder_trainable(True)
+        if a.freeze_layers:
+            model.freeze_bottom(a.freeze_layers)
         groups = model.layerwise_param_groups(a.lr, a.layer_decay, weight_decay=0.01,
                                               new_lr=a.new_params_lr)
+        groups = [g for g in groups if g["params"][0].requires_grad]       # groups are uniform per depth
         opt = torch.optim.AdamW(groups, lr=a.lr)
         return opt, get_cosine_schedule_with_warmup(opt, int(a.warmup_ratio * a.max_steps), a.max_steps)
 
@@ -259,6 +267,7 @@ def train(a, run):
             **evaluate(model, val_batches, device, img_tok)}]
     print(json.dumps(log[-1]), flush=True)
     run.outputs.update(log=str(out_dir / "log.json"), run_info=str(out_dir / "run_info.json"))
+    reference = model.checkpoint_state() if not a.random_init else None
     run.metrics["step0"] = log[0]
     best, bad_evals, step, micro, t0 = float("inf"), 0, 0, 0, time.time()
     done = False
@@ -267,7 +276,8 @@ def train(a, run):
             batch = to_device(batch, device, img_tok)
             with torch.autocast("cuda", dtype=torch.bfloat16, enabled=device == "cuda"):
                 out = model(**batch)
-            (out.loss / a.grad_accum).backward()
+            loss = out.loss if a.mim_weight == 1.0 else out.mlm_loss + a.mim_weight * out.mim_loss + out.wpa_loss
+            (loss / a.grad_accum).backward()
             micro += 1
             if micro % a.grad_accum:
                 continue
@@ -281,9 +291,10 @@ def train(a, run):
                     ev["encoder_max_abs_change"] = max(
                         (p.detach().cpu() - enc_before[n]).abs().max().item()
                         for n, p in model.named_parameters() if n in enc_before)
-                improved = ev["loss"] < best
+                ev["sel_loss"] = round(ev["mlm_loss"] + a.mim_weight * ev["mim_loss"] + ev["wpa_loss"], 4)
+                improved = ev["sel_loss"] < best
                 if improved:
-                    best, bad_evals = ev["loss"], 0
+                    best, bad_evals = ev["sel_loss"], 0
                     save_backbone(model, processor, out_dir / "backbone")
                     torch.save({k: v for k, v in model.state_dict().items() if not k.startswith("layoutlmv3.")},
                                out_dir / "pretraining_heads.pt")
@@ -314,11 +325,16 @@ def train(a, run):
 
     if a.save_last:
         save_backbone(model, processor, out_dir / "last_backbone")
+    if reference is not None:  # drift of the final weights from the starting checkpoint
+        drift = {"final_step": step, **model.encoder_drift(reference)}
+        (out_dir / "drift.json").write_text(json.dumps(drift, indent=1))
+        run.metrics["encoder_drift_final"] = drift
+        print(json.dumps({"encoder_drift": drift}), flush=True)
     joint = [r for r in log[1:] if r["phase"] == "joint"]
-    best_step = min(joint, key=lambda r: r["loss"])["step"] if joint else 0
+    best_step = min(joint, key=lambda r: r["sel_loss"])["step"] if joint else 0
     after_warmup = [r for r in log if r["step"] == warmup and r["phase"] == "head_warmup" and warmup]
     run.metrics.update(after_head_warmup=after_warmup[0] if after_warmup else None, final=log[-1],
-                       best_joint=min(joint, key=lambda r: r["loss"]) if joint else None,
+                       best_joint=min(joint, key=lambda r: r["sel_loss"]) if joint else None,
                        steps_done=step, wall_minutes=round((time.time() - t0) / 60, 1))
     run.outputs.update(backbone=str(out_dir / "backbone") if joint else None,
                        warmup_backbone=str(out_dir / "warmup_backbone") if warmup else None,

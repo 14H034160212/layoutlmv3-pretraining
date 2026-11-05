@@ -191,6 +191,36 @@ class LayoutLMv3ForPreTraining(LayoutLMv3PreTrainedModel):
         for p in self.parameters():
             p.requires_grad_(trainable or id(p) in new)
 
+    def freeze_bottom(self, num_layers: int) -> None:
+        """Freeze the embeddings and transformer layers 0 .. num_layers - 1 (depth <= num_layers).
+
+        New parameters (heads, image [MASK] token) and the shared relative-position biases stay as they are.
+        """
+        new = {id(p) for p in self.new_parameters().values()}
+        for name, p in self.named_parameters():
+            if id(p) not in new and self.layer_id(name) <= num_layers:
+                p.requires_grad_(False)
+
+    def checkpoint_state(self) -> dict[str, torch.Tensor]:
+        """CPU copy of every checkpoint (non-new) parameter, e.g. to measure drift later."""
+        new = set(self.new_parameters())
+        return {n: p.detach().float().cpu().clone() for n, p in self.named_parameters() if n not in new}
+
+    def encoder_drift(self, reference: dict[str, torch.Tensor]) -> dict[str, float]:
+        """Relative L2 change ||theta - theta_0|| / ||theta_0|| of the checkpoint parameters, overall and per depth
+        (``depth_0`` = embeddings, ``depth_i`` = layer i - 1, top = shared relative-position biases)."""
+        num, den = {}, {}
+        for name, p in self.named_parameters():
+            if name not in reference:
+                continue
+            ref = reference[name]
+            d = (p.detach().float().cpu() - ref).pow(2).sum().item()
+            r = ref.pow(2).sum().item()
+            for key in ("all", f"depth_{self.layer_id(name)}"):
+                num[key] = num.get(key, 0.0) + d
+                den[key] = den.get(key, 0.0) + r
+        return {k: (num[k] / den[k]) ** 0.5 if den[k] > 0 else 0.0 for k in sorted(num, key=lambda k: (k != "all", len(k), k))}
+
     def layer_id(self, name: str) -> int:
         """BEiT-style depth of a parameter: 0 = embeddings, i + 1 = transformer layer i, L + 1 = top.
 

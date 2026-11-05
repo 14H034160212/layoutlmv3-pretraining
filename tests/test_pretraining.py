@@ -348,3 +348,34 @@ def test_from_backbone_round_trip_keeps_image_mask_token(tmp_path):
     assert again.loading_info["image_mask_token_from_checkpoint"] is True
     w = "encoder.layer.1.output.dense.weight"
     torch.testing.assert_close(again.layoutlmv3.state_dict()[w], model.layoutlmv3.state_dict()[w])
+
+
+# ------------------------------------------------------------------ screen options
+
+def test_freeze_bottom_layers():
+    model = LayoutLMv3ForPreTraining(tiny_config(), image_vocab_size=8)        # 2 layers
+    model.set_encoder_trainable(True)
+    model.freeze_bottom(1)                                                     # embeddings + layer 0
+    for name, p in model.named_parameters():
+        frozen = name in ("layoutlmv3.embeddings.word_embeddings.weight", "layoutlmv3.patch_embed.proj.weight") \
+            or name.startswith("layoutlmv3.encoder.layer.0.")
+        if frozen:
+            assert not p.requires_grad, name
+        if name.startswith(("layoutlmv3.encoder.layer.1.", "mlm_head.", "mim_head.", "wpa_head.",
+                            "layoutlmv3.encoder.rel_pos")) or name == "layoutlmv3.image_mask_token":
+            assert p.requires_grad, name
+    assert not model.mlm_head.decoder.weight.requires_grad                    # tied to the word embeddings
+
+
+def test_encoder_drift():
+    torch.manual_seed(0)
+    model = LayoutLMv3ForPreTraining(tiny_config(), image_vocab_size=8)
+    ref = model.checkpoint_state()
+    assert "layoutlmv3.image_mask_token" not in ref and not any(k.startswith("mim_head") for k in ref)
+    assert model.encoder_drift(ref)["all"] == 0.0
+    with torch.no_grad():
+        w = model.layoutlmv3.encoder.layer[1].output.dense.weight
+        w.mul_(1.1)                                                            # +10% on one tensor of layer 1
+        model.mim_head[1].weight.add_(1.0)                                     # heads are not counted
+    d = model.encoder_drift(ref)
+    assert d["depth_1"] == 0.0 and d["depth_0"] == 0.0 and 0 < d["depth_2"] < 0.1 and 0 < d["all"] < d["depth_2"]
