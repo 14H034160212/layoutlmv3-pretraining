@@ -1,0 +1,1312 @@
+{
+ "shards": "0-259",
+ "pages_per_doc": 2,
+ "min_words": 10,
+ "exclude_funsd_test": true,
+ "documents": 272665,
+ "train_pages": 404507,
+ "funsd_test_overlap_excluded": 19,
+ "minutes": 0.9,
+ "per_shard": {
+  "0": {
+   "docs": 1028,
+   "pages": 1505,
+   "excluded": 0
+  },
+  "1": {
+   "docs": 1076,
+   "pages": 1602,
+   "excluded": 0
+  },
+  "2": {
+   "docs": 1033,
+   "pages": 1540,
+   "excluded": 0
+  },
+  "3": {
+   "docs": 1049,
+   "pages": 1566,
+   "excluded": 0
+  },
+  "4": {
+   "docs": 1056,
+   "pages": 1559,
+   "excluded": 0
+  },
+  "5": {
+   "docs": 995,
+   "pages": 1498,
+   "excluded": 0
+  },
+  "6": {
+   "docs": 1069,
+   "pages": 1594,
+   "excluded": 0
+  },
+  "7": {
+   "docs": 1059,
+   "pages": 1575,
+   "excluded": 0
+  },
+  "8": {
+   "docs": 1040,
+   "pages": 1549,
+   "excluded": 0
+  },
+  "9": {
+   "docs": 1024,
+   "pages": 1555,
+   "excluded": 0
+  },
+  "10": {
+   "docs": 1044,
+   "pages": 1548,
+   "excluded": 0
+  },
+  "11": {
+   "docs": 1043,
+   "pages": 1536,
+   "excluded": 0
+  },
+  "12": {
+   "docs": 1048,
+   "pages": 1576,
+   "excluded": 0
+  },
+  "13": {
+   "docs": 1059,
+   "pages": 1559,
+   "excluded": 0
+  },
+  "14": {
+   "docs": 1060,
+   "pages": 1574,
+   "excluded": 0
+  },
+  "15": {
+   "docs": 1033,
+   "pages": 1541,
+   "excluded": 0
+  },
+  "16": {
+   "docs": 1045,
+   "pages": 1556,
+   "excluded": 0
+  },
+  "17": {
+   "docs": 1065,
+   "pages": 1582,
+   "excluded": 0
+  },
+  "18": {
+   "docs": 1043,
+   "pages": 1549,
+   "excluded": 0
+  },
+  "19": {
+   "docs": 1032,
+   "pages": 1499,
+   "excluded": 0
+  },
+  "20": {
+   "docs": 1062,
+   "pages": 1562,
+   "excluded": 0
+  },
+  "21": {
+   "docs": 1086,
+   "pages": 1568,
+   "excluded": 0
+  },
+  "22": {
+   "docs": 1073,
+   "pages": 1566,
+   "excluded": 0
+  },
+  "23": {
+   "docs": 1049,
+   "pages": 1574,
+   "excluded": 0
+  },
+  "24": {
+   "docs": 1041,
+   "pages": 1542,
+   "excluded": 1
+  },
+  "25": {
+   "docs": 1039,
+   "pages": 1579,
+   "excluded": 0
+  },
+  "26": {
+   "docs": 1081,
+   "pages": 1607,
+   "excluded": 0
+  },
+  "27": {
+   "docs": 1050,
+   "pages": 1570,
+   "excluded": 1
+  },
+  "28": {
+   "docs": 1047,
+   "pages": 1550,
+   "excluded": 0
+  },
+  "29": {
+   "docs": 1036,
+   "pages": 1496,
+   "excluded": 0
+  },
+  "30": {
+   "docs": 1081,
+   "pages": 1575,
+   "excluded": 0
+  },
+  "31": {
+   "docs": 1007,
+   "pages": 1470,
+   "excluded": 0
+  },
+  "32": {
+   "docs": 1043,
+   "pages": 1556,
+   "excluded": 0
+  },
+  "33": {
+   "docs": 1068,
+   "pages": 1576,
+   "excluded": 0
+  },
+  "34": {
+   "docs": 1063,
+   "pages": 1551,
+   "excluded": 0
+  },
+  "35": {
+   "docs": 1023,
+   "pages": 1517,
+   "excluded": 0
+  },
+  "36": {
+   "docs": 1075,
+   "pages": 1595,
+   "excluded": 0
+  },
+  "37": {
+   "docs": 1045,
+   "pages": 1538,
+   "excluded": 0
+  },
+  "38": {
+   "docs": 1066,
+   "pages": 1597,
+   "excluded": 0
+  },
+  "39": {
+   "docs": 1003,
+   "pages": 1477,
+   "excluded": 0
+  },
+  "40": {
+   "docs": 1022,
+   "pages": 1533,
+   "excluded": 0
+  },
+  "41": {
+   "docs": 1081,
+   "pages": 1611,
+   "excluded": 0
+  },
+  "42": {
+   "docs": 1038,
+   "pages": 1538,
+   "excluded": 0
+  },
+  "43": {
+   "docs": 1040,
+   "pages": 1523,
+   "excluded": 0
+  },
+  "44": {
+   "docs": 1008,
+   "pages": 1485,
+   "excluded": 0
+  },
+  "45": {
+   "docs": 1050,
+   "pages": 1554,
+   "excluded": 0
+  },
+  "46": {
+   "docs": 1055,
+   "pages": 1566,
+   "excluded": 0
+  },
+  "47": {
+   "docs": 1073,
+   "pages": 1586,
+   "excluded": 0
+  },
+  "48": {
+   "docs": 1054,
+   "pages": 1537,
+   "excluded": 0
+  },
+  "49": {
+   "docs": 1051,
+   "pages": 1583,
+   "excluded": 0
+  },
+  "50": {
+   "docs": 1041,
+   "pages": 1553,
+   "excluded": 0
+  },
+  "51": {
+   "docs": 1054,
+   "pages": 1571,
+   "excluded": 0
+  },
+  "52": {
+   "docs": 1058,
+   "pages": 1556,
+   "excluded": 1
+  },
+  "53": {
+   "docs": 1041,
+   "pages": 1544,
+   "excluded": 0
+  },
+  "54": {
+   "docs": 1085,
+   "pages": 1602,
+   "excluded": 0
+  },
+  "55": {
+   "docs": 1036,
+   "pages": 1540,
+   "excluded": 0
+  },
+  "56": {
+   "docs": 1041,
+   "pages": 1550,
+   "excluded": 0
+  },
+  "57": {
+   "docs": 1081,
+   "pages": 1605,
+   "excluded": 0
+  },
+  "58": {
+   "docs": 1030,
+   "pages": 1519,
+   "excluded": 0
+  },
+  "59": {
+   "docs": 1032,
+   "pages": 1517,
+   "excluded": 0
+  },
+  "60": {
+   "docs": 1035,
+   "pages": 1552,
+   "excluded": 0
+  },
+  "61": {
+   "docs": 1051,
+   "pages": 1546,
+   "excluded": 0
+  },
+  "62": {
+   "docs": 1065,
+   "pages": 1589,
+   "excluded": 1
+  },
+  "63": {
+   "docs": 1027,
+   "pages": 1551,
+   "excluded": 0
+  },
+  "64": {
+   "docs": 1058,
+   "pages": 1603,
+   "excluded": 0
+  },
+  "65": {
+   "docs": 1005,
+   "pages": 1496,
+   "excluded": 1
+  },
+  "66": {
+   "docs": 1036,
+   "pages": 1547,
+   "excluded": 0
+  },
+  "67": {
+   "docs": 1063,
+   "pages": 1596,
+   "excluded": 0
+  },
+  "68": {
+   "docs": 1040,
+   "pages": 1522,
+   "excluded": 0
+  },
+  "69": {
+   "docs": 1000,
+   "pages": 1471,
+   "excluded": 0
+  },
+  "70": {
+   "docs": 1034,
+   "pages": 1524,
+   "excluded": 0
+  },
+  "71": {
+   "docs": 1061,
+   "pages": 1582,
+   "excluded": 0
+  },
+  "72": {
+   "docs": 1042,
+   "pages": 1552,
+   "excluded": 0
+  },
+  "73": {
+   "docs": 1057,
+   "pages": 1599,
+   "excluded": 0
+  },
+  "74": {
+   "docs": 1024,
+   "pages": 1511,
+   "excluded": 0
+  },
+  "75": {
+   "docs": 1074,
+   "pages": 1570,
+   "excluded": 0
+  },
+  "76": {
+   "docs": 1047,
+   "pages": 1540,
+   "excluded": 0
+  },
+  "77": {
+   "docs": 1044,
+   "pages": 1551,
+   "excluded": 0
+  },
+  "78": {
+   "docs": 1041,
+   "pages": 1546,
+   "excluded": 0
+  },
+  "79": {
+   "docs": 1075,
+   "pages": 1612,
+   "excluded": 0
+  },
+  "80": {
+   "docs": 1052,
+   "pages": 1571,
+   "excluded": 0
+  },
+  "81": {
+   "docs": 1033,
+   "pages": 1506,
+   "excluded": 0
+  },
+  "82": {
+   "docs": 1053,
+   "pages": 1548,
+   "excluded": 0
+  },
+  "83": {
+   "docs": 1073,
+   "pages": 1591,
+   "excluded": 0
+  },
+  "84": {
+   "docs": 1070,
+   "pages": 1598,
+   "excluded": 0
+  },
+  "85": {
+   "docs": 1039,
+   "pages": 1549,
+   "excluded": 0
+  },
+  "86": {
+   "docs": 1067,
+   "pages": 1587,
+   "excluded": 0
+  },
+  "87": {
+   "docs": 1041,
+   "pages": 1557,
+   "excluded": 1
+  },
+  "88": {
+   "docs": 1014,
+   "pages": 1505,
+   "excluded": 0
+  },
+  "89": {
+   "docs": 1050,
+   "pages": 1541,
+   "excluded": 0
+  },
+  "90": {
+   "docs": 1075,
+   "pages": 1583,
+   "excluded": 0
+  },
+  "91": {
+   "docs": 1056,
+   "pages": 1548,
+   "excluded": 0
+  },
+  "92": {
+   "docs": 1068,
+   "pages": 1558,
+   "excluded": 0
+  },
+  "93": {
+   "docs": 1053,
+   "pages": 1566,
+   "excluded": 0
+  },
+  "94": {
+   "docs": 1077,
+   "pages": 1571,
+   "excluded": 1
+  },
+  "95": {
+   "docs": 1048,
+   "pages": 1574,
+   "excluded": 0
+  },
+  "96": {
+   "docs": 1042,
+   "pages": 1572,
+   "excluded": 0
+  },
+  "97": {
+   "docs": 1067,
+   "pages": 1603,
+   "excluded": 1
+  },
+  "98": {
+   "docs": 1041,
+   "pages": 1537,
+   "excluded": 0
+  },
+  "99": {
+   "docs": 1058,
+   "pages": 1559,
+   "excluded": 0
+  },
+  "100": {
+   "docs": 1031,
+   "pages": 1524,
+   "excluded": 0
+  },
+  "101": {
+   "docs": 1025,
+   "pages": 1518,
+   "excluded": 0
+  },
+  "102": {
+   "docs": 1029,
+   "pages": 1498,
+   "excluded": 0
+  },
+  "103": {
+   "docs": 1032,
+   "pages": 1494,
+   "excluded": 0
+  },
+  "104": {
+   "docs": 1071,
+   "pages": 1610,
+   "excluded": 0
+  },
+  "105": {
+   "docs": 1040,
+   "pages": 1532,
+   "excluded": 0
+  },
+  "106": {
+   "docs": 1059,
+   "pages": 1602,
+   "excluded": 0
+  },
+  "107": {
+   "docs": 1003,
+   "pages": 1516,
+   "excluded": 0
+  },
+  "108": {
+   "docs": 1051,
+   "pages": 1561,
+   "excluded": 0
+  },
+  "109": {
+   "docs": 1059,
+   "pages": 1560,
+   "excluded": 0
+  },
+  "110": {
+   "docs": 1037,
+   "pages": 1538,
+   "excluded": 0
+  },
+  "111": {
+   "docs": 1059,
+   "pages": 1571,
+   "excluded": 0
+  },
+  "112": {
+   "docs": 1106,
+   "pages": 1627,
+   "excluded": 0
+  },
+  "113": {
+   "docs": 1062,
+   "pages": 1561,
+   "excluded": 0
+  },
+  "114": {
+   "docs": 1052,
+   "pages": 1543,
+   "excluded": 0
+  },
+  "115": {
+   "docs": 1025,
+   "pages": 1521,
+   "excluded": 0
+  },
+  "116": {
+   "docs": 1047,
+   "pages": 1516,
+   "excluded": 0
+  },
+  "117": {
+   "docs": 1045,
+   "pages": 1546,
+   "excluded": 1
+  },
+  "118": {
+   "docs": 1047,
+   "pages": 1575,
+   "excluded": 0
+  },
+  "119": {
+   "docs": 1069,
+   "pages": 1562,
+   "excluded": 0
+  },
+  "120": {
+   "docs": 1052,
+   "pages": 1562,
+   "excluded": 0
+  },
+  "121": {
+   "docs": 1043,
+   "pages": 1572,
+   "excluded": 0
+  },
+  "122": {
+   "docs": 1067,
+   "pages": 1607,
+   "excluded": 0
+  },
+  "123": {
+   "docs": 1051,
+   "pages": 1569,
+   "excluded": 0
+  },
+  "124": {
+   "docs": 1048,
+   "pages": 1561,
+   "excluded": 0
+  },
+  "125": {
+   "docs": 1054,
+   "pages": 1520,
+   "excluded": 0
+  },
+  "126": {
+   "docs": 1048,
+   "pages": 1565,
+   "excluded": 0
+  },
+  "127": {
+   "docs": 1048,
+   "pages": 1548,
+   "excluded": 0
+  },
+  "128": {
+   "docs": 1023,
+   "pages": 1522,
+   "excluded": 0
+  },
+  "129": {
+   "docs": 1054,
+   "pages": 1573,
+   "excluded": 0
+  },
+  "130": {
+   "docs": 1028,
+   "pages": 1535,
+   "excluded": 0
+  },
+  "131": {
+   "docs": 1066,
+   "pages": 1581,
+   "excluded": 0
+  },
+  "132": {
+   "docs": 1069,
+   "pages": 1562,
+   "excluded": 0
+  },
+  "133": {
+   "docs": 1045,
+   "pages": 1540,
+   "excluded": 0
+  },
+  "134": {
+   "docs": 1047,
+   "pages": 1568,
+   "excluded": 0
+  },
+  "135": {
+   "docs": 1060,
+   "pages": 1584,
+   "excluded": 0
+  },
+  "136": {
+   "docs": 1038,
+   "pages": 1542,
+   "excluded": 0
+  },
+  "137": {
+   "docs": 1058,
+   "pages": 1538,
+   "excluded": 0
+  },
+  "138": {
+   "docs": 1011,
+   "pages": 1520,
+   "excluded": 0
+  },
+  "139": {
+   "docs": 1044,
+   "pages": 1544,
+   "excluded": 0
+  },
+  "140": {
+   "docs": 1047,
+   "pages": 1542,
+   "excluded": 0
+  },
+  "141": {
+   "docs": 1022,
+   "pages": 1529,
+   "excluded": 0
+  },
+  "142": {
+   "docs": 1076,
+   "pages": 1615,
+   "excluded": 0
+  },
+  "143": {
+   "docs": 1048,
+   "pages": 1551,
+   "excluded": 0
+  },
+  "144": {
+   "docs": 1035,
+   "pages": 1524,
+   "excluded": 0
+  },
+  "145": {
+   "docs": 1063,
+   "pages": 1561,
+   "excluded": 0
+  },
+  "146": {
+   "docs": 1059,
+   "pages": 1572,
+   "excluded": 0
+  },
+  "147": {
+   "docs": 1046,
+   "pages": 1554,
+   "excluded": 0
+  },
+  "148": {
+   "docs": 1064,
+   "pages": 1572,
+   "excluded": 2
+  },
+  "149": {
+   "docs": 1071,
+   "pages": 1587,
+   "excluded": 0
+  },
+  "150": {
+   "docs": 1083,
+   "pages": 1620,
+   "excluded": 0
+  },
+  "151": {
+   "docs": 1020,
+   "pages": 1560,
+   "excluded": 0
+  },
+  "152": {
+   "docs": 1061,
+   "pages": 1570,
+   "excluded": 0
+  },
+  "153": {
+   "docs": 1063,
+   "pages": 1558,
+   "excluded": 0
+  },
+  "154": {
+   "docs": 1051,
+   "pages": 1572,
+   "excluded": 0
+  },
+  "155": {
+   "docs": 1038,
+   "pages": 1513,
+   "excluded": 0
+  },
+  "156": {
+   "docs": 1039,
+   "pages": 1539,
+   "excluded": 0
+  },
+  "157": {
+   "docs": 1057,
+   "pages": 1564,
+   "excluded": 0
+  },
+  "158": {
+   "docs": 1021,
+   "pages": 1519,
+   "excluded": 0
+  },
+  "159": {
+   "docs": 1051,
+   "pages": 1561,
+   "excluded": 0
+  },
+  "160": {
+   "docs": 1039,
+   "pages": 1565,
+   "excluded": 0
+  },
+  "161": {
+   "docs": 1062,
+   "pages": 1577,
+   "excluded": 0
+  },
+  "162": {
+   "docs": 1052,
+   "pages": 1575,
+   "excluded": 0
+  },
+  "163": {
+   "docs": 1046,
+   "pages": 1558,
+   "excluded": 0
+  },
+  "164": {
+   "docs": 1075,
+   "pages": 1605,
+   "excluded": 0
+  },
+  "165": {
+   "docs": 1039,
+   "pages": 1556,
+   "excluded": 0
+  },
+  "166": {
+   "docs": 1044,
+   "pages": 1575,
+   "excluded": 0
+  },
+  "167": {
+   "docs": 1067,
+   "pages": 1542,
+   "excluded": 0
+  },
+  "168": {
+   "docs": 1036,
+   "pages": 1535,
+   "excluded": 0
+  },
+  "169": {
+   "docs": 1059,
+   "pages": 1563,
+   "excluded": 0
+  },
+  "170": {
+   "docs": 1056,
+   "pages": 1566,
+   "excluded": 0
+  },
+  "171": {
+   "docs": 1026,
+   "pages": 1544,
+   "excluded": 0
+  },
+  "172": {
+   "docs": 1055,
+   "pages": 1574,
+   "excluded": 0
+  },
+  "173": {
+   "docs": 1073,
+   "pages": 1601,
+   "excluded": 0
+  },
+  "174": {
+   "docs": 1065,
+   "pages": 1548,
+   "excluded": 0
+  },
+  "175": {
+   "docs": 1029,
+   "pages": 1538,
+   "excluded": 0
+  },
+  "176": {
+   "docs": 1046,
+   "pages": 1541,
+   "excluded": 0
+  },
+  "177": {
+   "docs": 1065,
+   "pages": 1571,
+   "excluded": 0
+  },
+  "178": {
+   "docs": 1068,
+   "pages": 1581,
+   "excluded": 0
+  },
+  "179": {
+   "docs": 1028,
+   "pages": 1536,
+   "excluded": 0
+  },
+  "180": {
+   "docs": 1059,
+   "pages": 1533,
+   "excluded": 0
+  },
+  "181": {
+   "docs": 1047,
+   "pages": 1553,
+   "excluded": 0
+  },
+  "182": {
+   "docs": 1049,
+   "pages": 1551,
+   "excluded": 0
+  },
+  "183": {
+   "docs": 1048,
+   "pages": 1539,
+   "excluded": 0
+  },
+  "184": {
+   "docs": 1030,
+   "pages": 1524,
+   "excluded": 0
+  },
+  "185": {
+   "docs": 1040,
+   "pages": 1562,
+   "excluded": 2
+  },
+  "186": {
+   "docs": 1038,
+   "pages": 1557,
+   "excluded": 0
+  },
+  "187": {
+   "docs": 1073,
+   "pages": 1626,
+   "excluded": 0
+  },
+  "188": {
+   "docs": 1014,
+   "pages": 1513,
+   "excluded": 2
+  },
+  "189": {
+   "docs": 1050,
+   "pages": 1574,
+   "excluded": 0
+  },
+  "190": {
+   "docs": 1029,
+   "pages": 1500,
+   "excluded": 0
+  },
+  "191": {
+   "docs": 1073,
+   "pages": 1616,
+   "excluded": 0
+  },
+  "192": {
+   "docs": 1074,
+   "pages": 1601,
+   "excluded": 0
+  },
+  "193": {
+   "docs": 1045,
+   "pages": 1554,
+   "excluded": 0
+  },
+  "194": {
+   "docs": 1031,
+   "pages": 1539,
+   "excluded": 0
+  },
+  "195": {
+   "docs": 1056,
+   "pages": 1547,
+   "excluded": 0
+  },
+  "196": {
+   "docs": 1060,
+   "pages": 1589,
+   "excluded": 0
+  },
+  "197": {
+   "docs": 1064,
+   "pages": 1572,
+   "excluded": 0
+  },
+  "198": {
+   "docs": 1051,
+   "pages": 1546,
+   "excluded": 0
+  },
+  "199": {
+   "docs": 1056,
+   "pages": 1574,
+   "excluded": 0
+  },
+  "200": {
+   "docs": 1042,
+   "pages": 1574,
+   "excluded": 0
+  },
+  "201": {
+   "docs": 1010,
+   "pages": 1485,
+   "excluded": 0
+  },
+  "202": {
+   "docs": 1079,
+   "pages": 1558,
+   "excluded": 0
+  },
+  "203": {
+   "docs": 1039,
+   "pages": 1535,
+   "excluded": 0
+  },
+  "204": {
+   "docs": 1053,
+   "pages": 1600,
+   "excluded": 0
+  },
+  "205": {
+   "docs": 1028,
+   "pages": 1522,
+   "excluded": 0
+  },
+  "206": {
+   "docs": 1081,
+   "pages": 1616,
+   "excluded": 0
+  },
+  "207": {
+   "docs": 1041,
+   "pages": 1534,
+   "excluded": 0
+  },
+  "208": {
+   "docs": 1039,
+   "pages": 1546,
+   "excluded": 0
+  },
+  "209": {
+   "docs": 1029,
+   "pages": 1538,
+   "excluded": 0
+  },
+  "210": {
+   "docs": 1048,
+   "pages": 1530,
+   "excluded": 0
+  },
+  "211": {
+   "docs": 1063,
+   "pages": 1555,
+   "excluded": 0
+  },
+  "212": {
+   "docs": 1045,
+   "pages": 1545,
+   "excluded": 0
+  },
+  "213": {
+   "docs": 1034,
+   "pages": 1534,
+   "excluded": 0
+  },
+  "214": {
+   "docs": 1024,
+   "pages": 1509,
+   "excluded": 0
+  },
+  "215": {
+   "docs": 1041,
+   "pages": 1534,
+   "excluded": 0
+  },
+  "216": {
+   "docs": 1063,
+   "pages": 1562,
+   "excluded": 0
+  },
+  "217": {
+   "docs": 1062,
+   "pages": 1560,
+   "excluded": 0
+  },
+  "218": {
+   "docs": 1045,
+   "pages": 1567,
+   "excluded": 0
+  },
+  "219": {
+   "docs": 1050,
+   "pages": 1585,
+   "excluded": 0
+  },
+  "220": {
+   "docs": 1080,
+   "pages": 1621,
+   "excluded": 0
+  },
+  "221": {
+   "docs": 1030,
+   "pages": 1533,
+   "excluded": 0
+  },
+  "222": {
+   "docs": 1072,
+   "pages": 1599,
+   "excluded": 0
+  },
+  "223": {
+   "docs": 1094,
+   "pages": 1612,
+   "excluded": 0
+  },
+  "224": {
+   "docs": 1052,
+   "pages": 1579,
+   "excluded": 0
+  },
+  "225": {
+   "docs": 1049,
+   "pages": 1575,
+   "excluded": 0
+  },
+  "226": {
+   "docs": 1054,
+   "pages": 1576,
+   "excluded": 0
+  },
+  "227": {
+   "docs": 1044,
+   "pages": 1573,
+   "excluded": 0
+  },
+  "228": {
+   "docs": 1031,
+   "pages": 1510,
+   "excluded": 0
+  },
+  "229": {
+   "docs": 1041,
+   "pages": 1542,
+   "excluded": 0
+  },
+  "230": {
+   "docs": 1035,
+   "pages": 1542,
+   "excluded": 0
+  },
+  "231": {
+   "docs": 1042,
+   "pages": 1556,
+   "excluded": 0
+  },
+  "232": {
+   "docs": 1038,
+   "pages": 1513,
+   "excluded": 0
+  },
+  "233": {
+   "docs": 1016,
+   "pages": 1511,
+   "excluded": 0
+  },
+  "234": {
+   "docs": 1076,
+   "pages": 1620,
+   "excluded": 0
+  },
+  "235": {
+   "docs": 1062,
+   "pages": 1592,
+   "excluded": 0
+  },
+  "236": {
+   "docs": 1054,
+   "pages": 1583,
+   "excluded": 0
+  },
+  "237": {
+   "docs": 1056,
+   "pages": 1560,
+   "excluded": 0
+  },
+  "238": {
+   "docs": 1053,
+   "pages": 1589,
+   "excluded": 0
+  },
+  "239": {
+   "docs": 1058,
+   "pages": 1555,
+   "excluded": 0
+  },
+  "240": {
+   "docs": 1037,
+   "pages": 1548,
+   "excluded": 0
+  },
+  "241": {
+   "docs": 1072,
+   "pages": 1571,
+   "excluded": 0
+  },
+  "242": {
+   "docs": 1011,
+   "pages": 1492,
+   "excluded": 0
+  },
+  "243": {
+   "docs": 1067,
+   "pages": 1611,
+   "excluded": 0
+  },
+  "244": {
+   "docs": 1023,
+   "pages": 1490,
+   "excluded": 0
+  },
+  "245": {
+   "docs": 1013,
+   "pages": 1523,
+   "excluded": 0
+  },
+  "246": {
+   "docs": 1074,
+   "pages": 1566,
+   "excluded": 1
+  },
+  "247": {
+   "docs": 1005,
+   "pages": 1503,
+   "excluded": 0
+  },
+  "248": {
+   "docs": 1041,
+   "pages": 1549,
+   "excluded": 0
+  },
+  "249": {
+   "docs": 1053,
+   "pages": 1565,
+   "excluded": 0
+  },
+  "250": {
+   "docs": 1024,
+   "pages": 1524,
+   "excluded": 0
+  },
+  "251": {
+   "docs": 1073,
+   "pages": 1615,
+   "excluded": 0
+  },
+  "252": {
+   "docs": 1074,
+   "pages": 1609,
+   "excluded": 0
+  },
+  "253": {
+   "docs": 1028,
+   "pages": 1525,
+   "excluded": 1
+  },
+  "254": {
+   "docs": 1048,
+   "pages": 1545,
+   "excluded": 0
+  },
+  "255": {
+   "docs": 1061,
+   "pages": 1539,
+   "excluded": 0
+  },
+  "256": {
+   "docs": 1044,
+   "pages": 1552,
+   "excluded": 0
+  },
+  "257": {
+   "docs": 1073,
+   "pages": 1603,
+   "excluded": 1
+  },
+  "258": {
+   "docs": 1047,
+   "pages": 1540,
+   "excluded": 1
+  },
+  "259": {
+   "docs": 1043,
+   "pages": 1529,
+   "excluded": 0
+  }
+ }
+}
