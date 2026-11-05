@@ -1,0 +1,36 @@
+{
+ "before": {
+  "mse": 0.002949,
+  "psnr": 26.642,
+  "codes_used": 4621,
+  "code_perplexity": 1343.0,
+  "top_code_share": 0.0285
+ },
+ "after": {
+  "mse": 0.001782,
+  "psnr": 28.997,
+  "codes_used": 4087,
+  "code_perplexity": 1401.5,
+  "top_code_share": 0.0153
+ },
+ "args": {
+  "output_dir": "runs/dvae_doc",
+  "encoder": "runs/dalle/encoder.pkl",
+  "decoder": "runs/dalle/decoder.pkl",
+  "idl_shards": "0-26",
+  "val_shards": "2999",
+  "val_pages": 256,
+  "pages_per_doc": 2,
+  "exclude_funsd_test": true,
+  "steps": 6000,
+  "batch_size": 64,
+  "lr": 0.0001,
+  "tau": 1.0,
+  "kl_weight": 0.0,
+  "eval_every": 1000,
+  "num_workers": 12,
+  "seed": 42
+ },
+ "val_pages": 256,
+ "minutes": 67.9
+}

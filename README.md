@@ -64,7 +64,7 @@ python scripts/finetune_funsd.py --task cord  --model runs/idl_dalle_base/backbo
 | `--save_last` | also keep the final step in `last_backbone/` |
 | `--head_warmup_steps N`, `--head_lr` | first train only the parameters the released checkpoints lack (the three heads and the image `[MASK]` embedding) for `N` steps with the encoder frozen, then train jointly; see [Head warm-up](#head-warm-up-the-released-encoder-starts-from-a-good-point) |
 | `--layer_decay d`, `--new_params_lr` | layer-wise learning-rate decay (BEiT-style: layer *i* of *L* gets `lr * d^(L-i)`, embeddings `lr * d^(L+1)`), and the heads' lr after the warm-up (default `--lr`) |
-| `--wpa_head linear\|mlp\|mlp_patch` | WPA classifier: linear or two-layer MLP on the text token, or two-layer MLP on [text token; mean of the image patches its box covers] |
+| `--wpa_head linear\|mlp\|mlp_patch` | WPA classifier: linear (default) or two-layer MLP on the text token; `mlp_patch` (MLP on [text token; mean of its covered patches]) leaks the label through the `[MASK]` patch embedding and is only for reproducing that probe |
 | `--random_init` | control: the checkpoint's config with random weights |
 | `--tags ...` | tags for the run registry (see [Run registry](#run-registry)) |
 
@@ -138,22 +138,22 @@ Per-seed scores and the pre-training logs are in `results/idl/`.
 | **released encoder**: loss | 24.78 | 8.57 | **6.77** (step 7,000) |
 | MLM loss / accuracy | 14.78 / 0.000 | **2.79 / 0.511** | 2.61 / 0.534 |
 | MIM loss / accuracy | 9.19 / 0.000 | 5.33 / 0.122 | 4.14 / 0.214 |
-| WPA accuracy | 0.338 | 0.789 | 0.993 |
+| WPA balanced accuracy / AUC | 0.497 / 0.513 | 0.664 / 0.816 | 0.992 / 1.000 |
 | **random encoder** (same config): loss | 20.83 | 16.99 | 12.37 (step 6,750) |
 | MLM loss / accuracy | 10.93 / 0.000 | 9.13 / 0.056 | 6.55 / 0.083 |
 | MIM loss / accuracy | 9.17 / 0.000 | 7.31 / 0.039 | 5.80 / 0.096 |
-| WPA accuracy | 0.489 | 0.745 | 0.994 |
+| WPA balanced accuracy / AUC | 0.491 / 0.488 | 0.512 / 0.650 | 0.992 / 1.000 |
 | *earlier run (joint from step 0, lr 5e-5)*: loss | 24.78 | | 6.95 (step 6,000) |
-| MLM / MIM / WPA accuracy | 0 / 0 / 0.338 | | 0.515 / 0.211 / 0.999 |
+| MLM / MIM accuracy; WPA balanced accuracy / AUC | 0 / 0; 0.497 / 0.513 | | 0.515 / 0.211; 0.999 / 1.000 |
 
 ![Validation curves](results/idl_warmup/pretrain_curves.png)
 
-*Steps on the x-axis are optimiser steps; the warm-up runs take 1,000 more of them (and see 32k more pages) than the earlier run. Majority-class rates on the validation targets: WPA 0.742 ("aligned"); MIM: the most frequent dVAE token is 3.8% of masked patches.*
+*WPA balanced accuracy and AUC were not logged during these runs; the step-0 values come from the probe runs below (identical step 0), the others from re-evaluating the saved checkpoints with the same pages and masks (`scripts/eval_pretraining_checkpoint.py`, `results/idl_warmup/reeval/`; the re-evaluation reproduces every logged loss exactly). Chance is 0.5 for both. In the plot, steps are optimiser steps; the warm-up runs take 1,000 more of them (and see 32k more pages) than the earlier run, and WPA is shown as raw accuracy against the majority rate 0.742 ("aligned"). For MIM, the most frequent dVAE token is 3.8% of masked patches.*
 
 **What the warm-up shows, read as a correctness check of this re-implementation.** With the encoder frozen, a freshly initialised head reaches MLM accuracy 0.511 (loss 24.8 → 8.57 overall) in 1,000 steps, against 0.056 for the same head on a random encoder (which is about what predicting frequent tokens gives). A fresh head can only read masked tokens out of the encoder that well if (a) the checkpoint is loaded correctly and (b) the MLM input pipeline here (tokenisation, segment-level 2D layout with 0-1000 boxes, span masking with `<mask>`, the image input) is close to what the encoder saw in pre-training; with mismatched positions, boxes or image normalisation the frozen features would not be readable like this. It does **not** show that this code is equivalent to Microsoft's pre-training code, and it says little about the other two objectives:
 
 - **MIM** is not comparable to the paper: the targets here are tokens of OpenAI's natural-image DALL-E dVAE, not the paper's document dVAE, so the released encoder was never trained to predict them. The frozen encoder still gives 0.122 accuracy versus 0.039 for the random encoder (≈ the 3.8% majority rate), so its patch features carry usable visual information, but the number is a property of our targets.
-- **WPA** after the warm-up is 0.789 with the frozen encoder versus a majority baseline of 0.742 (random encoder: 0.745, i.e. at baseline). A linear head on the text token reads some alignment information from the frozen encoder, but only modestly above the baseline. It shows that the signal is there, not that our WPA formulation matches the paper's. After joint training WPA is near 0.99 for both encoders (the random one included), which again says that WPA is close to trivial here once the encoder can learn to spot the `[MASK]` patch embedding.
+- **WPA** after the warm-up: balanced accuracy 0.664 and AUC 0.816 with the frozen released encoder, against 0.512 / 0.650 for the random encoder (chance 0.5 / 0.5). In raw accuracy that is only 0.789 against a majority rate of 0.742 (random: 0.745). So a linear head on the text token does read alignment information from the frozen encoder, clearly above chance by AUC, but weakly. That shows the signal is there, not that our WPA formulation matches the paper's (see the probes below). After joint training WPA reaches balanced accuracy 0.99 and AUC 1.00 for both encoders, the random one included, so WPA is close to trivial here once the encoder can learn to detect the `[MASK]` patch embedding.
 
 Notably, the earlier run's *final* MLM accuracy (0.515 after 6,000 joint steps) is barely above what the frozen released encoder gives after the 1,000-step head warm-up (0.511). Most of what the earlier MLM curve showed was the head being learned, not the encoder improving.
 
@@ -173,6 +173,40 @@ Per-seed differences (warm-up recipe minus original): FUNSD +1.39, −0.12, +0.4
 The from-scratch control shows how far ahead continued pre-training starts: with the same 7,000 steps on 42k pages, a randomly initialised model reaches FUNSD F1 0.40, against 0.895 for the released checkpoint before any continued training.
 
 **Not done.** `layoutlmv3-large` was not rerun with this recipe: because base shows no downstream gain, the larger run (≈3 h pre-training plus ≈2.5 h fine-tuning) was left for a decision. Per-run logs, per-seed scores and the registry entries are in `results/idl_warmup/` and `experiments/registry.jsonl`.
+
+### Evidence per objective: frozen-encoder probes
+
+To see how much of each objective the released encoder already supports, and whether our choices for WPA and MIM are what limits it, each variant below was run as a **probe**: the released (or a randomly initialised) `layoutlmv3-base` encoder frozen, 1,000 head-only steps (`--head_warmup_steps 1000 --max_steps 0`, lr 1e-3), metrics on the same 512 held-out IDL pages with fixed masks (`scripts/run_probes.sh`, `scripts/summarize_probes.py`, `results/probes/`). A probe measures how readable a target is from frozen features; it is not a pre-training result.
+
+| Objective | Variant | released encoder | random encoder | baseline |
+|---|---|---:|---:|---:|
+| MLM | accuracy | **0.511** | 0.056 | n/a |
+| MIM | DALL-E dVAE targets (8,192), accuracy | **0.122** | 0.039 | 0.038 (majority) |
+| MIM | DALL-E dVAE fine-tuned on IDL pages, accuracy | **0.121** | 0.024 | 0.024 (majority) |
+| MIM | k-means codebook (512), accuracy | **0.502** | 0.297 | 0.297 |
+| WPA | linear head on the text token: balanced accuracy / AUC | 0.664 / 0.816 | 0.512 / 0.650 | 0.5 / 0.5 |
+| WPA | 2-layer MLP on the text token: balanced accuracy / AUC | **0.771 / 0.904** | 0.546 / 0.686 | 0.5 / 0.5 |
+| WPA | *leaky probe*: 2-layer MLP on [text token; mean of its covered patches] | 0.985 / 0.999 | 0.9997 / 1.000 | 0.5 / 0.5 |
+
+**WPA.** The paper (Sec. 2.3, objective III) describes WPA as predicting, for each *unmasked* text token, whether its corresponding image patches are masked, with "a two-layer MLP head that inputs contextual text and image" and a binary cross-entropy loss. Our labels follow that description: masked text tokens and special tokens are ignored, and a token is "unaligned" if any patch its box overlaps is masked (the paper does not say how tokens covering several patches are handled). Two-way softmax cross-entropy is equivalent to binary cross-entropy. The head used so far is a single linear layer on the text token; `--wpa_head mlp` adds a two-layer MLP on the text token. WPA is reported as balanced accuracy and AUC because 74% of the labels are "aligned".
+
+- **Text-only heads (the meaningful comparison).** The frozen released encoder carries alignment information in its text-token states. The random encoder gives AUC 0.65-0.69 (presumably from the box alone, e.g. large boxes cover more patches and are more often "unaligned"; this was not checked). The released encoder gives AUC 0.816 with a linear head and 0.904 with the two-layer MLP (balanced accuracy 0.664 and 0.771). This is consistent with the released encoder having been trained with a WPA-like objective, but it does not identify the paper's head.
+- **`--wpa_head mlp_patch` is a leaky probe, not evidence and not the paper's design.** It feeds the head the text token together with the mean hidden state of the patches the token's box covers. With a *random* encoder it reaches balanced accuracy 0.9997 and AUC 1.000, slightly above the released encoder. A masked patch's hidden state is dominated by the learned image `[MASK]` embedding, so the head can read "is my patch masked" (which is the label) directly, without knowing anything about word-patch alignment. It is kept in the code only so that this shortcut can be reproduced; it should not be used for pre-training, where it would make WPA trivial. The paper's "inputs contextual text and image" is not specific enough to tell how its head avoids this shortcut, if it does.
+
+**MIM targets.** The released encoder never saw our targets, so these numbers are about how readable each target is from its features. k-means targets on grey-scale patches are dominated by blank paper (the most frequent code is 30% of masked patches) and mostly measure "is there ink here" (0.502 vs the random encoder's 0.297 = majority). With the original DALL-E targets the frozen released encoder reaches 0.122 against 0.039 for the random encoder (≈ the 3.8% majority rate). With the document-fine-tuned dVAE (below) it reaches 0.121 against 0.024 (= its 2.4% majority rate): the same absolute accuracy, somewhat more above chance (5.0× vs 3.2× the majority rate), because the fine-tuned codebook is used more evenly. So the document tokenizer does **not** make the targets clearly more readable from the released encoder's features. That does not settle whether it would be a better pre-training target, which this probe cannot test.
+
+**Document dVAE** (`scripts/finetune_dvae.py`, `results/dvae_doc/`). The paper's MIM tokenizer is DiT's document dVAE, which is not released. As a substitute closer to it (but not the same), OpenAI's DALL-E dVAE encoder **and decoder** (`decoder.pkl`, the same modified MIT licence; loaded with the same restricted unpickler) were fine-tuned on the IDL training pages (shards 0-26, FUNSD-test near-duplicates removed; the validation shard 2999 is not used) at the 112 × 112 view used for MIM targets: 6,000 steps, batch 64 (384k page views, ≈ 9 passes over 42k pages; DiT's dVAE was trained on 42M pages), AdamW lr 1e-4, MSE reconstruction loss, argmax codes with a straight-through softmax gradient (τ = 1), 68 minutes on one A100. A KL-to-uniform term was tried for 300 steps and dropped: with weight 1e-3 it cut the code perplexity from 1,321 to 149 and made reconstructions worse; without it code usage stayed stable. On 256 held-out pages from shard 2999:
+
+| | MSE | PSNR (dB) | codes used | code perplexity | most frequent code |
+|---|---:|---:|---:|---:|---:|
+| DALL-E dVAE (natural images) | 0.00295 | 26.64 | 4,621 | 1,343 | 2.9% |
+| fine-tuned on IDL pages | **0.00178** | **29.00** | 4,087 | 1,402 | 1.5% |
+
+![Reconstructions](results/dvae_doc/reconstructions.png)
+
+*Left: the 112 × 112 view; middle: DALL-E dVAE; right: fine-tuned. Text lines are reconstructed as lines rather than grey blocks, but at this resolution no tokenizer can preserve glyphs.* Reconstruction improves by 2.4 dB and code usage stays about the same (fewer distinct codes, a flatter distribution). This is closer to the paper's setting, not the same: a 112 × 112 view of the page, 42k rather than 42M training pages, and a short fine-tune.
+
+**Summary of the probes.** MLM gives the strongest evidence that the checkpoint and the text-side pipeline are right. For WPA, the released encoder's text-token states carry alignment information that a two-layer MLP reads clearly better than a linear head (AUC 0.904 vs 0.816; random encoder ≤ 0.69). Feeding the head the covered patches leaks the label. For MIM, all three target types are readable above chance from the released encoder, and the document dVAE reconstructs IDL pages better (+2.4 dB) without changing how readable its codes are. None of the variants moved the frozen starting point enough to justify another full continued pre-training run within the compute set aside for this (≈ 4 GPU-hours, already used by the dVAE fine-tune and the 10 probes), so none was run. The probes do not show equivalence with Microsoft's code or tokenizer.
 
 ### Earlier sanity run: FUNSD train only (k-means targets)
 

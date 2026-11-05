@@ -171,7 +171,8 @@ def main():
                          "with the encoder frozen, before joint training; not counted in --max_steps")
     ap.add_argument("--head_lr", type=float, default=1e-3, help="peak lr during the head warm-up (cosine)")
     ap.add_argument("--wpa_head", choices=["linear", "mlp", "mlp_patch"], default="linear",
-                    help="WPA classifier: linear or 2-layer MLP on the text token, or MLP on [text; covered patches]")
+                    help="WPA classifier: linear or 2-layer MLP on the text token; mlp_patch (MLP on [text; covered "
+                         "patches]) leaks the label through the [MASK] patch embedding: probes only")
     ap.add_argument("--random_init", action="store_true",
                     help="control: use --model's config but random weights (pre-training from scratch)")
     ap.add_argument("--warmup_ratio", type=float, default=0.05)

@@ -1,0 +1,19 @@
+{
+ "backbone": "runs/idl_warmup_base_scratch/backbone",
+ "heads": "runs/idl_warmup_base_scratch/pretraining_heads.pt",
+ "val_pages": 512,
+ "image_mask_token_from_checkpoint": true,
+ "loss": 12.3678,
+ "mlm_loss": 6.554,
+ "mim_loss": 5.7962,
+ "wpa_loss": 0.0176,
+ "mlm_acc": 0.0829,
+ "mim_acc": 0.0959,
+ "wpa_acc": 0.9937,
+ "wpa_auc": 0.9997,
+ "wpa_bal_acc": 0.992,
+ "wpa_majority": 0.7424,
+ "mim_codes_used": 4315,
+ "mim_code_perplexity": 1449.5,
+ "mim_majority": 0.0379
+}

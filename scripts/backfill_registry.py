@@ -186,8 +186,8 @@ def entries():
                                   "--head_warmup_steps 1000 --head_lr 1e-3 --max_steps 0 --batch_size 16 --grad_accum 2 "
                                   f"--num_workers 12 --eval_every 250 --output_dir runs/probes/{name}",
                           command_source="scripts/run_probes.sh (GPU=4)"))
-    if (ROOT / "runs/dvae_doc/results.json").exists():
-        r = load("runs/dvae_doc/results.json")
+    if (ROOT / "results/dvae_doc/results.json").exists():
+        r = load("results/dvae_doc/results.json")
         rec = {"run_id": "backfill-dvae_doc", "kind": "finetune_dvae", "status": "completed", "backfilled": True,
                   "tags": ["backfilled", "dvae"], "start_utc": "2026-11-04T23:00:46+00:00",
                   "end_utc": mtime("runs/dvae_doc/results.json"), "git": pre,
@@ -199,7 +199,7 @@ def entries():
                                                 "val_pages": r["val_pages"], "view_size": 112},
                   "environment": {**SESSION_ENV, "cuda_visible_devices": "3", "gpu": [GPU]},
                   "outputs": {"encoder": "runs/dvae_doc/encoder.pt", "decoder": "runs/dvae_doc/decoder.pt",
-                              "results": "runs/dvae_doc/results.json"},
+                              "results": "results/dvae_doc/results.json", "reconstructions": "results/dvae_doc/reconstructions.png"},
                   "metrics": {"before": r["before"], "after": r["after"], "minutes": r["minutes"]},
                   "error": None, "notes": None}
         e.append(lambda rec=rec: rec)

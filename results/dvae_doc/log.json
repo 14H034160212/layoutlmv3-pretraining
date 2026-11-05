@@ -1,0 +1,70 @@
+[
+ {
+  "step": 0,
+  "mse": 0.002949,
+  "psnr": 26.642,
+  "codes_used": 4621,
+  "code_perplexity": 1343.0,
+  "top_code_share": 0.0285
+ },
+ {
+  "step": 1000,
+  "train_mse": 0.002056,
+  "mse": 0.002042,
+  "psnr": 28.387,
+  "codes_used": 4626,
+  "code_perplexity": 1315.0,
+  "top_code_share": 0.0262,
+  "minutes": 9.7
+ },
+ {
+  "step": 2000,
+  "train_mse": 0.002372,
+  "mse": 0.001907,
+  "psnr": 28.665,
+  "codes_used": 4207,
+  "code_perplexity": 1265.5,
+  "top_code_share": 0.0308,
+  "minutes": 21.0
+ },
+ {
+  "step": 3000,
+  "train_mse": 0.001575,
+  "mse": 0.001827,
+  "psnr": 28.862,
+  "codes_used": 4156,
+  "code_perplexity": 1305.0,
+  "top_code_share": 0.0256,
+  "minutes": 35.9
+ },
+ {
+  "step": 4000,
+  "train_mse": 0.001899,
+  "mse": 0.001814,
+  "psnr": 28.914,
+  "codes_used": 4117,
+  "code_perplexity": 1368.7,
+  "top_code_share": 0.0208,
+  "minutes": 48.2
+ },
+ {
+  "step": 5000,
+  "train_mse": 0.001515,
+  "mse": 0.001793,
+  "psnr": 28.97,
+  "codes_used": 4089,
+  "code_perplexity": 1374.5,
+  "top_code_share": 0.0128,
+  "minutes": 57.8
+ },
+ {
+  "step": 6000,
+  "train_mse": 0.001542,
+  "mse": 0.001782,
+  "psnr": 28.997,
+  "codes_used": 4087,
+  "code_perplexity": 1401.5,
+  "top_code_share": 0.0153,
+  "minutes": 67.8
+ }
+]

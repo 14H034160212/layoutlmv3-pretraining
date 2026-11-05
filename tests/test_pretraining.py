@@ -334,3 +334,17 @@ def test_wpa_mlp_patch_reads_the_covered_patches():
     torch.testing.assert_close(head(text, other, bbox), base)
     touched = patches.clone(); touched[0, covered] += 5.0
     assert not torch.allclose(head(text, touched, bbox), base)
+
+
+def test_from_backbone_round_trip_keeps_image_mask_token(tmp_path):
+    """A backbone saved by pretrain.py (LayoutLMv3ModelWithImageMask) reloads with its trained [MASK] token."""
+    torch.manual_seed(0)
+    model = LayoutLMv3ForPreTraining(tiny_config(), image_vocab_size=8)
+    with torch.no_grad():
+        model.layoutlmv3.image_mask_token.fill_(0.123)
+    model.layoutlmv3.save_pretrained(tmp_path)
+    again = LayoutLMv3ForPreTraining.from_backbone(str(tmp_path), image_vocab_size=8)
+    torch.testing.assert_close(again.layoutlmv3.image_mask_token, model.layoutlmv3.image_mask_token)
+    assert again.loading_info["image_mask_token_from_checkpoint"] is True
+    w = "encoder.layer.1.output.dense.weight"
+    torch.testing.assert_close(again.layoutlmv3.state_dict()[w], model.layoutlmv3.state_dict()[w])

@@ -23,7 +23,11 @@ def row(r):
     date = (r.get("end_utc") or r.get("start_utc") or "")[:16].replace("T", " ") or "-"
     if r["kind"] == "pretrain":
         warm = c.get("head_warmup_steps") or 0
-        hp = f"warm={warm} steps={c.get('max_steps', a.get('max_steps'))} lr={fmt(c.get('lr', a.get('lr')), 6)}"
+        steps = c.get("max_steps", a.get("max_steps"))
+        if warm and steps == 0:   # probe: only the head lr matters
+            hp = f"head-only {warm} steps, head_lr={fmt(c.get('head_lr'), 4)}"
+        else:
+            hp = f"warm={warm} steps={steps} lr={fmt(c.get('lr', a.get('lr')), 6)}"
         if c.get("layer_decay") not in (None, 1.0):
             hp += f" ld={c['layer_decay']}"
         best = m.get("best_joint") or m.get("after_head_warmup") or m.get("final") or {}

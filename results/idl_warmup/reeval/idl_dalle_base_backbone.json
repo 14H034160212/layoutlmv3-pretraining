@@ -1,0 +1,19 @@
+{
+ "backbone": "runs/idl_dalle_base/backbone",
+ "heads": "runs/idl_dalle_base/pretraining_heads.pt",
+ "val_pages": 512,
+ "image_mask_token_from_checkpoint": true,
+ "loss": 6.951,
+ "mlm_loss": 2.7773,
+ "mim_loss": 4.1704,
+ "wpa_loss": 0.0033,
+ "mlm_acc": 0.5152,
+ "mim_acc": 0.2113,
+ "wpa_acc": 0.9989,
+ "wpa_auc": 1.0,
+ "wpa_bal_acc": 0.9988,
+ "wpa_majority": 0.7424,
+ "mim_codes_used": 4315,
+ "mim_code_perplexity": 1449.5,
+ "mim_majority": 0.0379
+}

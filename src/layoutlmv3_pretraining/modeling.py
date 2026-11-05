@@ -78,8 +78,10 @@ class WPAHead(nn.Module):
     * ``linear``    : a linear layer on the text token's hidden state
     * ``mlp``       : a two-layer MLP on the text token's hidden state
     * ``mlp_patch`` : a two-layer MLP on [text hidden state; mean hidden state of the image patches its box
-                      covers]; the paper (Sec. 2.3, objective III) describes a two-layer MLP head "that inputs
-                      contextual text and image"
+                      covers]. **Leaky, do not use for pre-training**: a masked patch's hidden state carries the
+                      image [MASK] embedding, so the head can read the label directly (a random encoder reaches
+                      AUC 1.0). Kept to reproduce that probe. The paper (Sec. 2.3, objective III) only says the
+                      two-layer MLP head "inputs contextual text and image".
     """
 
     VARIANTS = ("linear", "mlp", "mlp_patch")
@@ -111,6 +113,16 @@ class LayoutLMv3PreTrainingOutput(ModelOutput):
     mlm_logits: torch.FloatTensor | None = None
     mim_logits: torch.FloatTensor | None = None
     wpa_logits: torch.FloatTensor | None = None
+
+
+def _read_checkpoint_tensor(name_or_path: str, key: str) -> torch.Tensor:
+    """One tensor from a (local or Hub) checkpoint, with or without the ``layoutlmv3.`` prefix."""
+    from safetensors import safe_open
+    from transformers.utils import cached_file
+    path = cached_file(name_or_path, "model.safetensors")
+    with safe_open(path, "pt") as f:
+        name = key if key in f.keys() else f"layoutlmv3.{key}"
+        return f.get_tensor(name)
 
 
 class LayoutLMv3ForPreTraining(LayoutLMv3PreTrainedModel):
@@ -145,15 +157,22 @@ class LayoutLMv3ForPreTraining(LayoutLMv3PreTrainedModel):
             model.loading_info = {"random_init": True}
             return model
         backbone, info = LayoutLMv3Model.from_pretrained(name_or_path, output_loading_info=True)
-        assert not info["missing_keys"] and not info["unexpected_keys"] and not info["mismatched_keys"], info
+        # a backbone saved by this repository also holds the image [MASK] token, which LayoutLMv3Model ignores
+        own_token = set(info["unexpected_keys"]) == {"image_mask_token"}
+        assert not info["missing_keys"] and not info["mismatched_keys"] and (
+            own_token or not info["unexpected_keys"]), info
         model = cls(backbone.config, image_vocab_size, wpa_head)
-        missing, unexpected = model.layoutlmv3.load_state_dict(backbone.state_dict(), strict=False)
+        state = backbone.state_dict()
+        if own_token:
+            state["image_mask_token"] = _read_checkpoint_tensor(name_or_path, "image_mask_token")
+        missing, unexpected = model.layoutlmv3.load_state_dict(state, strict=False)
         assert set(missing) <= {"image_mask_token"} and not unexpected, (missing, unexpected)
         model.mlm_head.decoder.weight = model.layoutlmv3.embeddings.word_embeddings.weight
         model.loading_info = {"random_init": False, "checkpoint_missing_keys": info["missing_keys"],
                               "checkpoint_unexpected_keys": info["unexpected_keys"],
                               "encoder_keys_loaded": len(backbone.state_dict()),
-                              "encoder_keys_not_in_checkpoint": sorted(missing)}
+                              "encoder_keys_not_in_checkpoint": sorted(missing),
+                              "image_mask_token_from_checkpoint": own_token}
         return model
 
     # ---------------------------------------------------------------- parameter groups
