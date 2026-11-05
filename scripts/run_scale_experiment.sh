@@ -19,12 +19,15 @@ RES=results/scale_v1
 mkdir -p runs/scale_v1 $RES
 if [ "$SIZE" = large ]; then LR=1e-5; DECAY=0.95; CORD_LR=2e-5; else LR=2e-5; DECAY=0.9; CORD_LR=5e-5; fi
 TAGS="scale-v1 $SIZE"
+# BS x ACCUM must stay 32 (plan); GC=--gradient_checkpointing to fit next to other jobs
+GC=${GC:-}
+[ $(( ${BS:-16} * ${ACCUM:-2} )) -eq 32 ] || { echo "BS*ACCUM must be 32"; exit 1; }
 if [ ! -f $OUT/DONE ]; then
   [ -f $OUT/train_state.pt ] || rm -rf $OUT          # fresh start unless there is a state to resume from
   CUDA_VISIBLE_DEVICES=$GPU $PY scripts/pretrain.py --model microsoft/layoutlmv3-$SIZE --corpus idl --idl_shards $SHARDS \
       --idl_val_shards 2999 --val_docs 512 --pages_per_doc 2 --exclude_funsd_test --image_tokenizer dalle \
       --dalle_encoder runs/dalle/encoder.pkl --wpa_head mlp --head_warmup_steps 1000 --head_lr 1e-3 \
-      --max_steps $JOINT_STEPS --lr $LR --layer_decay $DECAY --batch_size 16 --grad_accum 2 --num_workers 12 \
+      --max_steps $JOINT_STEPS --lr $LR --layer_decay $DECAY --batch_size ${BS:-16} --grad_accum ${ACCUM:-2} $GC --num_workers 12 \
       --eval_every 500 --patience 8 --seed 42 --save_last --state_every 2000 --resume \
       --tags $TAGS --output_dir $OUT >> $OUT.log 2>&1
   cp $OUT/log.json $RES/pretrain_${SIZE}_log.json
