@@ -123,8 +123,15 @@ def idl_pages(sample: dict[str, bytes], max_pages_per_doc: int = 2, min_words: i
         pages = json.loads(sample["json"])["pages"]
     except (ValueError, KeyError):
         return
-    tif = Image.open(io.BytesIO(sample["tif"])) if decode_images else None
-    n_frames = getattr(tif, "n_frames", 1) if tif is not None else len(pages)
+    # Some IDL TIFFs are malformed; PIL then raises SyntaxError (not OSError), e.g. "unknown data organization".
+    # A file that cannot be opened is skipped, and so is a frame that cannot be read, instead of stopping the DataLoader.
+    tif, n_frames = None, len(pages)
+    if decode_images:
+        try:
+            tif = Image.open(io.BytesIO(sample["tif"]))
+            n_frames = getattr(tif, "n_frames", 1)
+        except (OSError, ValueError, EOFError, SyntaxError):
+            return
     kept = 0
     for i, page in enumerate(pages):
         if kept >= max_pages_per_doc or i >= n_frames:
@@ -140,7 +147,7 @@ def idl_pages(sample: dict[str, bytes], max_pages_per_doc: int = 2, min_words: i
                 im = tif.convert("L")
                 factor = max(1, min(im.size) // image_size)
                 image = (im.reduce(factor) if factor > 1 else im).convert("RGB")
-            except (OSError, ValueError, EOFError):
+            except (OSError, ValueError, EOFError, SyntaxError):
                 continue
         kept += 1
         yield {"key": f"{sample['__key__']}/{i}", "image": image, "tokens": words, "bboxes": boxes}

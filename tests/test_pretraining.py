@@ -422,3 +422,34 @@ def test_encoder_drift():
         model.mim_head[1].weight.add_(1.0)                                     # heads are not counted
     d = model.encoder_drift(ref)
     assert d["depth_1"] == 0.0 and d["depth_0"] == 0.0 and 0 < d["depth_2"] < 0.1 and 0 < d["all"] < d["depth_2"]
+
+
+def test_idl_pages_skips_malformed_tiff(monkeypatch):
+    # IDL contains TIFFs on which PIL raises SyntaxError ("unknown data organization") when counting
+    # or seeking frames; such a document must be skipped, not stop the DataLoader worker.
+    import io, json
+    from PIL import Image
+    from layoutlmv3_pretraining import corpus
+    page = {"text": ["one two three four five six seven", "eight nine ten"],
+            "bbox": [[0.1, 0.1, 0.5, 0.02], [0.1, 0.2, 0.3, 0.02]], "score": [0.9, 0.9]}
+    good = io.BytesIO(); Image.new("1", (100, 130), 1).save(good, format="TIFF")
+    sample = {"__key__": "d", "json": json.dumps({"pages": [page]}).encode(), "tif": good.getvalue()}
+    assert len(list(corpus.idl_pages(sample))) == 1
+    assert list(corpus.idl_pages({**sample, "tif": b"II*\x00not a tiff"})) == []
+
+    class Broken:  # what PIL returns for the malformed files: opening works, frame access raises
+        @property
+        def n_frames(self):
+            raise SyntaxError("unknown data organization")
+
+    monkeypatch.setattr(corpus.Image, "open", lambda f: Broken())
+    assert list(corpus.idl_pages(sample)) == []
+
+    class BrokenSeek(Broken):
+        n_frames = 1
+
+        def seek(self, i):
+            raise SyntaxError("unknown data organization")
+
+    monkeypatch.setattr(corpus.Image, "open", lambda f: BrokenSeek())
+    assert list(corpus.idl_pages(sample)) == []
