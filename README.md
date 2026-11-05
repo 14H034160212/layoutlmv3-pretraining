@@ -102,8 +102,10 @@ Training times are wall-clock on GPUs that were partly shared with the fine-tuni
 | | base: start → end | large: start → end | Majority-class baseline |
 |---|---:|---:|---:|
 | MLM accuracy | 0.00 → 0.515 | 0.00 → 0.559 | n/a |
-| MIM accuracy (8,192 dVAE tokens) | 0.00 → 0.211 | 0.00 → 0.199 | 0.027 |
+| MIM accuracy (8,192 dVAE tokens) | 0.00 → 0.211 | 0.00 → 0.199 | 0.038¹ |
 | WPA accuracy | 0.34 → 0.999 | 0.54 → 0.997 | 0.742 |
+
+¹ Most frequent DALL-E code on the masked validation patches (fixed masks). An earlier version of this table said 0.027; that number could not be traced back to how it was computed, so it was re-measured.
 
 WPA is close to trivial in this implementation: whether a token's patches are masked can be read off the learned `[MASK]` patch embeddings, so do not read much into its accuracy.
 
