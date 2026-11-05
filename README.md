@@ -174,7 +174,35 @@ Per-seed differences (warm-up recipe minus original): FUNSD +1.39, −0.12, +0.4
 
 The from-scratch control shows how far ahead continued pre-training starts: with the same 7,000 steps on 42k pages, a randomly initialised model reaches FUNSD F1 0.40, against 0.895 for the released checkpoint before any continued training.
 
-**Large.** `layoutlmv3-large` has not been rerun with this recipe yet. The recipe screen below found no clearly better variant, so it is prepared unchanged (`GPU=3 SIZE=large INIT=pretrained ./scripts/run_idl_warmup_experiment.sh`: 1,000 head-only + 4,000 joint steps, lr 1e-5, layer decay 0.95). Per-run logs, per-seed scores and the registry entries are in `results/idl_warmup/` and `experiments/registry.jsonl`.
+**Large.** The recipe screen below found no clearly better variant, so `layoutlmv3-large` was rerun with the same recipe (`GPU=3 SIZE=large INIT=pretrained ./scripts/run_idl_warmup_experiment.sh`): 1,000 head-only steps, then 4,000 joint steps at lr 1e-5. Layer decay is 0.95 instead of base's 0.9. Over 24 layers that keeps the embeddings' lr at about the same fraction of the top layer's lr as base gets (0.95²⁵ ≈ 0.28 against 0.9¹³ ≈ 0.25), whereas 0.9 would give 0.07.
+
+| `layoutlmv3-large`, 512 held-out pages | loss | MLM acc | MIM acc | WPA AUC |
+|---|---:|---:|---:|---:|
+| step 0 (random heads) | 24.94 | 0.000 | 0.000 | 0.47 |
+| after the 1,000-step head warm-up (encoder frozen, unchanged) | 8.00 | **0.574** | 0.129 | 0.79 |
+| best, step 4,500 | 6.41 | 0.596 | 0.209 | 0.999 |
+| earlier run, joint from step 0: best, step 4,000 | 6.88 | 0.559 | 0.199 | n/a |
+
+As for base, the frozen released large encoder gives a fresh MLM head 0.574 accuracy within 1,000 steps, against 0.511 for base. Joint training then changes the encoder by 0.66% on average (relative parameter change, `results/idl_warmup/drift_large_pretrained.json`).
+
+| Initialisation (large) | FUNSD F1 | CORD F1 |
+|---|---:|---:|
+| `microsoft/layoutlmv3-large` | 0.903 ± 0.006 | 0.956 ± 0.005 |
+| + continued pre-training, joint from step 0 (above) | 0.905 ± 0.005 (p = 0.40) | 0.952 ± 0.003 (p = 0.21) |
+| + continued pre-training, head warm-up + gentler joint training | 0.901 ± 0.005 (p = 0.67) | 0.954 ± 0.004 (p = 0.33) |
+
+The table shows mean ± sample std over seeds 1-5, with paired t-tests against the original checkpoint (CORD fine-tuned at lr 2e-5).
+
+Per-seed differences (warm-up recipe minus original):
+
+| Task | Seed 1 | Seed 2 | Seed 3 | Seed 4 | Seed 5 | Mean |
+|---|---:|---:|---:|---:|---:|---:|
+| FUNSD | +0.22 | −0.63 | −0.02 | −0.84 | +0.65 | −0.12 |
+| CORD | −0.11 | +0.49 | −0.91 | −0.33 | −0.41 | −0.25 |
+
+Against the earlier large checkpoint, the warm-up recipe is −0.37 on FUNSD (p = 0.29) and +0.22 on CORD (p = 0.47). The picture is the same as for base. The warm-up gives a high starting point and a lower final validation loss, but no difference from the released checkpoint downstream that can be told apart from seed noise.
+
+Per-run logs, per-seed scores and the registry entries are in `results/idl_warmup/` and `experiments/registry.jsonl`.
 
 ### Evidence per objective: frozen-encoder probes
 
