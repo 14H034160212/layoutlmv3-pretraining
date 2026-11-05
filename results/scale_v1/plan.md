@@ -118,3 +118,31 @@ python scripts/analyze_scale.py base --out results/scale_v1/analysis_base.json  
 JOINT_STEPS=25282 GPU=3 SIZE=large setsid nohup ./scripts/run_scale_experiment.sh > runs/scale_v1/large.out 2>&1 < /dev/null &
 python scripts/analyze_scale.py base large --out results/scale_v1/analysis.json
 ```
+
+---
+
+## Execution log (added after the plan was committed; not part of the pre-registration)
+
+**2026-11-05: base stopped at joint step 1,000 of 25,282 (step 2,000 overall); budget blocker.**
+- Base started at 08:15 UTC on GPU 3. Since about 07:56 another job of the same user (four `bright_train_source.py`
+  processes per GPU, rotating through events) has shared GPUs 3 and 4 at 100% utilisation and ~47 GB on GPU 3.
+- Measured throughput under that load: head warm-up 25 steps/min, joint training **17 steps/min**, against the
+  93 steps/min this plan's budget assumed. At that rate base pre-training alone would need about 25 more
+  GPU-hours, and GPU 3 had 74.6 of 80 GB in use, so large (~58 GB) could not start either. As the plan
+  says, the run was stopped and reported instead of continuing over budget.
+- The run was stopped right after the training state at step 2,000 was saved
+  (`runs/scale_v1/base/train_state.pt`), so it can be resumed with the same command
+  (`JOINT_STEPS=25282 GPU=3 SIZE=base ./scripts/run_scale_experiment.sh`). On resume the data stream restarts
+  from the beginning of the shards with a new shuffle seed; over the 2 epochs, the first ~64k pages
+  would then be seen three times and the last ~63k only once. That would be a deviation, to be reported.
+- Validation at the stop (`pretrain_base_partial_log.json`; 512 pages of shard 2999, fixed masks):
+
+  | step | phase | loss | MLM acc | MIM acc | WPA AUC |
+  |---:|---|---:|---:|---:|---:|
+  | 0 | random heads | 25.44 | 0.000 | 0.000 | 0.507 |
+  | 1,000 | end of head warm-up (encoder unchanged, max abs change 0.0) | 8.47 | 0.511 | 0.121 | 0.904 |
+  | 2,000 | joint step 1,000 | 7.47 | 0.522 | 0.163 | 0.990 |
+
+  The end of the warm-up reproduces the frozen-encoder probes: MLM 0.511, and WPA AUC 0.904, the same as the
+  two-layer MLP probe in `results/probes`. These are not results of the scale-up.
+- GPU time used: smoke test 0.1 h + base 1.6 h = **1.7 GPU-hours**.
