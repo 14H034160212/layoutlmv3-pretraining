@@ -28,7 +28,7 @@ from transformers import (LayoutLMv3ForTokenClassification, LayoutLMv3Processor,
                           get_linear_schedule_with_warmup)
 
 DEFAULTS = {"funsd": dict(steps=1000, lr=1e-5, batch_size=2), "cord": dict(steps=1000, lr=5e-5, batch_size=4)}
-# --protocol paper: the LayoutLMv3 paper's settings (Sec. 3.3: 1,000 steps; FUNSD lr 1e-5, batch 16; CORD lr 5e-5,
+# --protocol strict / paper: see --help. paper: the LayoutLMv3 paper's settings (Sec. 3.3: 1,000 steps; FUNSD lr 1e-5, batch 16; CORD lr 5e-5,
 # batch 64), labels on the first sub-token of each word only, and words cut off by the 512-token limit scored as
 # missed (predicted "O") instead of being dropped from the evaluation.
 PAPER = {"funsd": dict(steps=1000, lr=1e-5, batch_size=16), "cord": dict(steps=1000, lr=5e-5, batch_size=64)}
@@ -174,9 +174,9 @@ def main():
     ap.add_argument("--lr", type=float)
     ap.add_argument("--batch_size", type=int)
     ap.add_argument("--out")
-    ap.add_argument("--protocol", choices=["legacy", "paper"], default="legacy",
-                    help="legacy: the settings of all results so far; paper: the paper's batch sizes, first-sub-token "
-                         "labels and truncated words scored as missed (see PAPER)")
+    ap.add_argument("--protocol", choices=["legacy", "strict", "paper"], default="legacy",
+                    help="legacy: the settings of all results so far; strict: legacy batch sizes with first-sub-token "
+                         "labels and truncated words scored as missed; paper: strict plus the paper's batch sizes (PAPER)")
     ap.add_argument("--micro_batch", type=int, default=16, help="--protocol paper: per-forward batch (accumulation)")
     ap.add_argument("--eval_at", type=int, nargs="*", default=[],
                     help="also evaluate at these fine-tuning steps (0 = before training) and save the learning curve")
@@ -202,7 +202,7 @@ def finetune(a, hp, tracker):
     t0 = time.time()
     f1s, curves = [], {}
     for s in a.seeds:
-        f1, curve = run(ds, a.model, s, device=device, eval_at=set(a.eval_at), paper=a.protocol == "paper",
+        f1, curve = run(ds, a.model, s, device=device, eval_at=set(a.eval_at), paper=a.protocol != "legacy",
                         micro_batch=a.micro_batch, **hp)
         f1s.append(f1)
         if curve:
