@@ -600,3 +600,33 @@ def test_resumed_stream_continues_without_replay(tmp_path, workers):
     resumed = stream(skip=13)                           # a run killed after 13 batches and resumed
     assert resumed == full[13 * 4:]                     # continues with the same sequence, nothing replayed
     assert stream(skip=0)[:8] == full[:8] and full[:8] != resumed[:8]
+
+
+def test_param_groups_exclude_biases_norms_and_embeddings_from_weight_decay():
+    model = LayoutLMv3ForPreTraining(tiny_config(), image_vocab_size=8)
+    groups = model.layerwise_param_groups(1e-4, layer_decay=0.5, weight_decay=0.05, new_lr=1e-3)
+    wd = {n: g["weight_decay"] for g in groups for n in g["names"]}
+    lr = {n: g["lr"] for g in groups for n in g["names"]}
+    assert len(wd) == sum(1 for _ in model.parameters())                  # every parameter exactly once
+    no_decay = {n for n, v in wd.items() if v == 0.0}
+    for n in ("layoutlmv3.cls_token", "layoutlmv3.pos_embed", "layoutlmv3.image_mask_token",
+              "layoutlmv3.embeddings.word_embeddings.weight", "layoutlmv3.embeddings.position_embeddings.weight",
+              "layoutlmv3.embeddings.x_position_embeddings.weight", "layoutlmv3.embeddings.token_type_embeddings.weight",
+              "layoutlmv3.embeddings.LayerNorm.weight", "layoutlmv3.LayerNorm.weight", "layoutlmv3.norm.weight",
+              "layoutlmv3.encoder.layer.0.attention.output.LayerNorm.weight",
+              "layoutlmv3.encoder.layer.1.attention.self.query.bias", "layoutlmv3.patch_embed.proj.bias",
+              "layoutlmv3.encoder.rel_pos_bias.weight", "layoutlmv3.encoder.rel_pos_x_bias.weight",
+              "mlm_head.decoder.bias", "mim_head.0.weight", "wpa_head.net.0.bias"):
+        assert n in no_decay, n
+    decay = set(wd) - no_decay
+    assert decay == {n for n, p in model.named_parameters() if p.ndim >= 2 and not n.startswith(
+        ("layoutlmv3.cls_token", "layoutlmv3.pos_embed", "layoutlmv3.image_mask_token", "layoutlmv3.embeddings.",
+         "layoutlmv3.encoder.rel_pos"))}
+    assert {"layoutlmv3.patch_embed.proj.weight", "layoutlmv3.encoder.layer.0.attention.self.query.weight",
+            "layoutlmv3.encoder.layer.1.output.dense.weight", "mlm_head.dense.weight", "mim_head.1.weight",
+            "wpa_head.net.2.weight"} <= decay and all(wd[n] == 0.05 for n in decay)
+    # layer-wise lr decay is unchanged by the split: both halves of a depth have the same lr
+    assert lr["layoutlmv3.encoder.layer.0.attention.self.query.weight"] == pytest.approx(1e-4 * 0.5 ** 2)
+    assert lr["layoutlmv3.encoder.layer.0.attention.self.query.bias"] == pytest.approx(1e-4 * 0.5 ** 2)
+    assert lr["layoutlmv3.embeddings.word_embeddings.weight"] == lr["layoutlmv3.patch_embed.proj.weight"]
+    assert lr["mim_head.1.weight"] == lr["mim_head.1.bias"] == pytest.approx(1e-3)

@@ -251,9 +251,22 @@ class LayoutLMv3ForPreTraining(LayoutLMv3PreTrainedModel):
             return 0                     # text/visual embeddings, patch embedding, cls/pos tokens, input LNs
         return num_layers + 1
 
+    NO_WEIGHT_DECAY = ("cls_token", "pos_embed", "image_mask_token", "embeddings", "rel_pos_bias",
+                       "rel_pos_x_bias", "rel_pos_y_bias")
+
+    @classmethod
+    def no_weight_decay(cls, name: str, param: torch.Tensor) -> bool:
+        """BEiT-style exclusions: biases, LayerNorm weights (all 1-D tensors), the visual [CLS] token and position
+        embedding, the image [MASK] token, the text and 1D/2D position embeddings and the relative position biases.
+        The patch-embedding convolution and all other weight matrices keep weight decay."""
+        return param.ndim <= 1 or name.endswith(".bias") or any(k in name.split(".") for k in cls.NO_WEIGHT_DECAY)
+
     def layerwise_param_groups(self, lr: float, layer_decay: float = 1.0, weight_decay: float = 0.01,
                                new_lr: float | None = None) -> list[dict]:
-        """AdamW groups with lr * layer_decay ** (L + 1 - depth); ``new_lr`` overrides it for new parameters."""
+        """AdamW groups with lr * layer_decay ** (L + 1 - depth); ``new_lr`` overrides it for new parameters.
+
+        Each depth is split into a group with ``weight_decay`` and one with 0 (``no_weight_decay``).
+        """
         top = self.config.num_hidden_layers + 1
         new = {id(p) for p in self.new_parameters().values()}
         groups: dict[tuple, dict] = {}
@@ -261,8 +274,8 @@ class LayoutLMv3ForPreTraining(LayoutLMv3PreTrainedModel):
             is_new = id(p) in new
             depth = self.layer_id(name)
             g_lr = new_lr if (is_new and new_lr is not None) else lr * layer_decay ** (top - depth)
-            g = groups.setdefault((depth, is_new), {"params": [], "names": [], "lr": g_lr,
-                                                     "weight_decay": weight_decay})
+            wd = 0.0 if self.no_weight_decay(name, p) else weight_decay
+            g = groups.setdefault((depth, is_new, wd), {"params": [], "names": [], "lr": g_lr, "weight_decay": wd})
             g["params"].append(p); g["names"].append(name)
         return list(groups.values())
 

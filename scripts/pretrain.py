@@ -38,6 +38,9 @@ from layoutlmv3_pretraining.modeling import DEFAULT_WPA_HEAD
 from layoutlmv3_pretraining.tracking import RunTracker
 
 
+ADAM_BETAS = (0.9, 0.98)  # as in the LayoutLMv3 paper (the PyTorch default before scale-v2 was (0.9, 0.999))
+
+
 def parse_range(spec: str) -> list[int]:
     out = []
     for part in spec.split(","):
@@ -296,13 +299,15 @@ def train(a, run):
         groups = model.layerwise_param_groups(a.lr, a.layer_decay, weight_decay=0.01,
                                               new_lr=a.new_params_lr)
         groups = [g for g in groups if g["params"][0].requires_grad]       # groups are uniform per depth
-        opt = torch.optim.AdamW(groups, lr=a.lr)
+        opt = torch.optim.AdamW(groups, lr=a.lr, betas=ADAM_BETAS)
         return opt, get_cosine_schedule_with_warmup(opt, int(a.warmup_ratio * a.max_steps), a.max_steps)
 
     warmup = a.head_warmup_steps
     if warmup:  # phase 1: heads only, encoder frozen
         model.set_encoder_trainable(False)
-        opt = torch.optim.AdamW(model.new_parameters().values(), lr=a.head_lr, weight_decay=0.01)
+        new = {id(p) for p in model.new_parameters().values()}
+        groups = [g for g in model.layerwise_param_groups(a.head_lr, weight_decay=0.01) if id(g["params"][0]) in new]
+        opt = torch.optim.AdamW(groups, lr=a.head_lr, betas=ADAM_BETAS)
         sched = get_cosine_schedule_with_warmup(opt, int(0.1 * warmup), warmup)
         enc_before = {n: p.detach().cpu().clone() for n, p in model.named_parameters()
                       if n not in model.new_parameters()}

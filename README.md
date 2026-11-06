@@ -27,6 +27,18 @@ The paper's MIM targets come from a dVAE image tokenizer trained on documents (f
 
 Any object with `vocab_size` and `encode(pixel_values) -> LongTensor[B, 196]` can be plugged in instead.
 
+### Optimiser
+
+AdamW with betas (0.9, 0.98) as in the paper, weight decay 0.01, layer-wise learning-rate decay (BEiT-style). As in BEiT, biases, LayerNorm weights, the visual `[CLS]` token and position embedding (`cls_token`, `pos_embed`), the image `[MASK]` token, the text, 1D and 2D position embeddings and the relative position biases get no weight decay (`LayoutLMv3ForPreTraining.no_weight_decay`). Runs before scale-v2 used PyTorch's default betas (0.9, 0.999) and weight decay on every parameter. Fine-tuning (`scripts/finetune_funsd.py`) is unchanged.
+
+### Known limitations
+
+These differences from the paper or quirks are known and left as they are:
+
+- **Span masking works on sub-word tokens**, not whole words: a span can start or end inside a word. The paper does not say which unit it uses.
+- **FUNSD fine-tuning labels a few non-first sub-tokens.** The tokenizer splits the check-box characters ☐/☑ into two byte-level tokens and the processor labels both, so 123 of 21,958 labelled tokens in FUNSD train (57 of 8,413 in test) are second sub-tokens. All checkpoints are fine-tuned and scored the same way, so comparisons are not affected, but absolute F1 differs slightly from a first-sub-token-only evaluation.
+- **The FUNSD-test filter has limited recall.** It compares word 5-grams in OCR order. FUNSD test pages in annotation order are all caught, but in reading order only 62% are, and 46% with 5% word-level OCR errors. A near-duplicate page with different OCR order can get through.
+
 ## Quick start
 
 ```bash
