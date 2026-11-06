@@ -1,0 +1,110 @@
+{
+ "run_id": "20261106T031903Z-finetune_funsd-9e8393",
+ "kind": "finetune_funsd",
+ "status": "completed",
+ "backfilled": false,
+ "tags": [
+  "scale-v1",
+  "base"
+ ],
+ "start_utc": "2026-11-06T03:19:03+00:00",
+ "end_utc": "2026-11-06T03:27:02+00:00",
+ "git": {
+  "commit": "d2ffaa73b82f7b64fb7a9ed8091d2d99b3cf413e",
+  "dirty": true,
+  "diff_sha256": "9abafc5649243575100849f8aab059d9314e07f7ca070f4172c234329dbf859a",
+  "untracked": [
+   "results/scale_v1/drift_base.json",
+   "results/scale_v1/pretrain_base_log.json",
+   "results/scale_v1/pretrain_base_run_record.json"
+  ]
+ },
+ "command": "python scripts/finetune_funsd.py --task funsd --model runs/scale_v1/base/backbone --seeds 1 2 3 4 5 --tags scale-v1 base --out results/scale_v1/funsd_base_scaled.json",
+ "argv": [
+  "scripts/finetune_funsd.py",
+  "--task",
+  "funsd",
+  "--model",
+  "runs/scale_v1/base/backbone",
+  "--seeds",
+  "1",
+  "2",
+  "3",
+  "4",
+  "5",
+  "--tags",
+  "scale-v1",
+  "base",
+  "--out",
+  "results/scale_v1/funsd_base_scaled.json"
+ ],
+ "cwd": "/data/qbao775/layoutlmv3-pretraining",
+ "args": {
+  "model": "runs/scale_v1/base/backbone",
+  "task": "funsd",
+  "seeds": [
+   1,
+   2,
+   3,
+   4,
+   5
+  ],
+  "steps": null,
+  "lr": null,
+  "batch_size": null,
+  "out": "results/scale_v1/funsd_base_scaled.json",
+  "tags": [
+   "scale-v1",
+   "base"
+  ]
+ },
+ "config": {
+  "task": "funsd",
+  "model": "runs/scale_v1/base/backbone",
+  "seeds": [
+   1,
+   2,
+   3,
+   4,
+   5
+  ],
+  "steps": 1000,
+  "lr": 1e-05,
+  "batch_size": 2,
+  "dataset": "nielsr/funsd-layoutlmv3"
+ },
+ "environment": {
+  "python": "3.11.7",
+  "hostname": "hgx2.novalocal",
+  "cuda_visible_devices": "3",
+  "torch": "2.6.0+cu124",
+  "cuda": "12.4",
+  "gpu": [
+   "NVIDIA A100-SXM4-80GB"
+  ],
+  "transformers": "4.57.6"
+ },
+ "outputs": {
+  "results": "/data/qbao775/layoutlmv3-pretraining/results/scale_v1/funsd_base_scaled.json"
+ },
+ "metrics": {
+  "per_seed": {
+   "1": 0.8976,
+   "2": 0.9051,
+   "3": 0.8943,
+   "4": 0.8977,
+   "5": 0.8949
+  },
+  "f1": [
+   0.8976,
+   0.9051,
+   0.8943,
+   0.8977,
+   0.8949
+  ],
+  "mean": 0.8979,
+  "std": 0.0043,
+  "minutes": 8.0
+ },
+ "error": null
+}

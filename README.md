@@ -259,6 +259,50 @@ Before spending large-model compute, six variants of the head warm-up recipe wer
 
 All six variants are within −0.36 to +0.21 points of the original checkpoint (paired p = 0.29-0.94) and within −0.38 to +0.18 of A, well inside the 0.6-point threshold. By the pre-registered rule **the current recipe (A) is kept** (B's score is below A's, so its tie exception does not apply). With 3 seeds × 2 tasks this screen can only detect differences of about 0.6 points or more, so the conclusion is "no variant is clearly better at this resolution", not "no variant is better". Dropping MIM (C) did not help CORD, so the mismatched DALL-E targets are not visibly harming the visual features at this scale. Lower lr (E) and freezing the bottom half (F) cut the encoder drift by 20-40% without a measurable downstream effect. The screen used about 5 GPU-hours.
 
+### Scaling the continued pre-training data
+
+**Question.** Is the null result above caused by the small corpus? The plan, the decision rule and the corpus count were committed before any run (`results/scale_v1/plan.md`).
+
+**Setup.** The corpus grows from IDL shards 0-26 to shards 0-259: **404,507 training pages** from 272,665 documents (2 pages per document, the same FUNSD-test filter). Validation is unchanged (the same 512 pages and masks).
+- Schedule: the head warm-up recipe with 1,000 head-only steps, then 25,282 joint steps (2 epochs).
+- WPA uses the two-layer MLP head (the new default). Everything else is as for `results/idl_warmup`.
+- Fine-tuning recipes and seeds 1-5 are the same as above.
+
+**Gain rule (pre-registered).** Over the 10 (task, seed) pairs, the mean paired difference must be ≥ +0.5 F1 points, positive on both FUNSD and CORD, and p < 0.05 (paired t-test).
+
+**Base: pre-training learns more, downstream does not move.**
+
+| `layoutlmv3-base`, 512 held-out pages | loss | MLM acc | MIM acc |
+|---|---:|---:|---:|
+| after the head warm-up (encoder unchanged) | 8.47 | 0.511 | 0.121 |
+| 42k pages, best (`results/idl_warmup`) | 6.77 | 0.534 | 0.214 |
+| **404k pages, best (step 23,500)** | **6.38** | **0.547** | **0.242** |
+
+| Initialisation (base) | FUNSD F1 | CORD F1 |
+|---|---:|---:|
+| `microsoft/layoutlmv3-base` | 0.895 ± 0.007 | 0.936 ± 0.004 |
+| + 42k pages, head warm-up | 0.899 ± 0.004 | 0.933 ± 0.004 |
+| + 404k pages, head warm-up | 0.898 ± 0.004 | 0.935 ± 0.002 |
+
+Per-seed differences, 404k minus original:
+
+| Task | Seed 1 | Seed 2 | Seed 3 | Seed 4 | Seed 5 | Mean | p |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| FUNSD | +1.38 | +0.79 | −0.71 | +0.25 | −0.21 | +0.30 | 0.46 |
+| CORD | 0.00 | −1.01 | +0.14 | +0.18 | +0.28 | −0.08 | 0.75 |
+
+- Pooled over both tasks, the mean is +0.11 points (p = 0.63). Against the 42k checkpoint it is +0.06 (p = 0.79).
+- By the pre-registered rule there is **no gain at this resolution**.
+- Ten times more pages give a clearly lower validation loss (6.38 against 6.77) and higher MLM and MIM accuracy, and the encoder moves further (2.6% mean relative change, against 0.9%). None of this reaches FUNSD or CORD.
+- The most likely reading is that the released checkpoint was already trained on about 11M pages of the same kind of documents. In-domain data for the target task, rather than more general IDL pages, is the more promising direction.
+
+**Deviations from the plan** (details in the execution log in `plan.md`):
+- The run was interrupted twice, at steps 2,000 and 4,000 (GPU sharing, then a malformed TIFF that stopped the DataLoader; such files are now skipped).
+- Each resume restarts the data stream with a new shuffle seed, so some pages were seen more often than others.
+- A few malformed files are skipped, so slightly fewer than 404,507 pages were readable.
+
+**Large** is still running and will be added here.
+
 ### Earlier sanity run: FUNSD train only (k-means targets)
 
 This run predates the IDL corpus, the dVAE tokenizer and best-checkpoint selection (it used the last step, from commit `6aa8569`). Continued pre-training used the **FUNSD train split only** (129 documents for training and 20 held out to monitor the objectives), for 3,000 steps at batch size 8, on one A100 (13 minutes).

@@ -146,3 +146,11 @@ python scripts/analyze_scale.py base large --out results/scale_v1/analysis.json
   The end of the warm-up reproduces the frozen-encoder probes: MLM 0.511, and WPA AUC 0.904, the same as the
   two-layer MLP probe in `results/probes`. These are not results of the scale-up.
 - GPU time used: smoke test 0.1 h + base 1.6 h = **1.7 GPU-hours**.
+
+**2026-11-05/06: base resumed and completed; large started on GPU 4.**
+- 11:23 UTC: base resumed from the step-2,000 state on GPU 3, sharing it with other jobs (data seed 2042).
+- 11:28 UTC: large started on GPU 4 next to other jobs, with micro-batch 8 × 4 accumulation steps (effective batch 32, as planned) and gradient checkpointing, to fit the free memory.
+- 13:40 UTC: base stopped at step ~5,500. A malformed IDL TIFF made PIL raise `SyntaxError: unknown data organization`, which the page loader did not catch. Fixed in d2ffaa7: such documents and frames are now skipped, with a test. Base was resumed at 20:42 UTC from the step-4,000 state (data seed 4042). Large hit the same file at 21:08 UTC and resumed from its step-2,000 state.
+- Effect: base's data stream restarted twice with new shuffle seeds, so the pages seen in steps 2,000-5,500 were partly seen again. A few malformed documents are skipped, so the readable corpus is slightly below 404,507 pages.
+- 03:41 UTC (Nov 6): base finished all 25,282 joint steps (best validation loss 6.3765 at step 23,500) and its FUNSD and CORD fine-tuning. Verdict by the rule above: **no gain at this resolution** (pooled +0.11 points, p = 0.63).
+- Large: base gave no gain, and GPU time is over the planned budget because both GPUs were shared. The user decided to continue large to completion. Large moves to GPU 3 after its next state save.
