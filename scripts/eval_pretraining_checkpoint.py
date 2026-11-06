@@ -31,6 +31,8 @@ def main():
     ap.add_argument("--val_shards", default="2999")
     ap.add_argument("--val_docs", type=int, default=512)
     ap.add_argument("--batch_size", type=int, default=16)
+    ap.add_argument("--orientation", choices=["fix", "drop", "off"], default="fix",
+                    help="page orientation handling (off: the validation pages of every run before scale-v2)")
     ap.add_argument("--out")
     a = ap.parse_args()
     device = "cuda"
@@ -39,7 +41,8 @@ def main():
     from datasets import load_dataset
     exclude = NgramBlocklist(load_dataset("nielsr/funsd-layoutlmv3", split="test")["tokens"], n=5, threshold=0.5)
     val = list(IDLPages(resolve_idl_sources(parse_range(a.val_shards), download=True), processor,
-                        max_pages=a.val_docs, max_pages_per_doc=2, min_words=10, exclude=exclude))
+                        max_pages=a.val_docs, max_pages_per_doc=2, min_words=10, exclude=exclude,
+                        orientation=a.orientation))
     collate = PretrainingCollator(processor.tokenizer, None, seed=0)
     batches = [collate(val[i:i + a.batch_size]) for i in range(0, len(val), a.batch_size)]
     img_tok = DalleTokenizer.from_pretrained(a.dalle_encoder).to(device)
@@ -54,6 +57,7 @@ def main():
     assert not unexpected and all(k.startswith("layoutlmv3.") for k in missing), (missing, unexpected)
     model.to(device)
     res = {"backbone": a.backbone, "heads": a.heads, "wpa_head": a.wpa_head, "val_pages": len(val),
+           "orientation": a.orientation,
            "image_mask_token_from_checkpoint": model.loading_info.get("image_mask_token_from_checkpoint"),
            **evaluate(model, batches, device, img_tok)}
     print(json.dumps(res))

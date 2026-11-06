@@ -4,6 +4,8 @@
 # then FUNSD and CORD fine-tuning (seeds 1-5) of the selected checkpoint.
 #   GPU=3 SIZE=base  setsid nohup ./scripts/run_scale_experiment.sh > runs/scale_v1/base.out 2>&1 < /dev/null &
 #   GPU=3 SIZE=large setsid nohup ./scripts/run_scale_experiment.sh > runs/scale_v1/large.out 2>&1 < /dev/null &
+# Scale-up v2 (results/scale_v2/plan.md, fixed data pipeline): EXP=scale_v2 JOINT_STEPS=25143 \
+#   FT_EVAL="0 25 50 100 150 200 300 400 600 800" (fine-tuning learning curves; final F1 unchanged).
 # FT_GPU=<id> runs the fine-tuning on another GPU (default: GPU).
 # Resumable: pre-training continues from runs/scale_v1/<size>/train_state.pt (saved every 2000 steps) if it was
 # interrupted, and is skipped if DONE exists; a fine-tuning is skipped if its results file exists.
@@ -12,13 +14,15 @@ cd "$(dirname "$0")/.."
 export HF_HOME=${HF_HOME:-$HOME/.cache/huggingface} HF_HUB_OFFLINE=1
 GPU=${GPU:?set GPU}; FT_GPU=${FT_GPU:-$GPU}; SIZE=${SIZE:-base}
 PY=.venv/bin/python
-SHARDS=0-259
+SHARDS=${SHARDS:-0-259}
+EXP=${EXP:-scale_v1}
 JOINT_STEPS=${JOINT_STEPS:?set JOINT_STEPS (plan: ceil(2 N / 32))}
-OUT=runs/scale_v1/$SIZE
-RES=results/scale_v1
-mkdir -p runs/scale_v1 $RES
+OUT=runs/$EXP/$SIZE
+RES=results/$EXP
+mkdir -p runs/$EXP $RES
+EVAL_AT=""; [ -n "${FT_EVAL:-}" ] && EVAL_AT="--eval_at $FT_EVAL"
 if [ "$SIZE" = large ]; then LR=1e-5; DECAY=0.95; CORD_LR=2e-5; else LR=2e-5; DECAY=0.9; CORD_LR=5e-5; fi
-TAGS="scale-v1 $SIZE"
+TAGS="${EXP/_/-} $SIZE"
 # BS x ACCUM must stay 32 (plan); GC=--gradient_checkpointing to fit next to other jobs
 GC=${GC:-}
 [ $(( ${BS:-16} * ${ACCUM:-2} )) -eq 32 ] || { echo "BS*ACCUM must be 32"; exit 1; }
@@ -38,7 +42,7 @@ if [ ! -f $OUT/DONE ]; then
   echo "pretraining $SIZE done $(date -u +%FT%TZ)"
 fi
 [ -f $RES/funsd_${SIZE}_scaled.json ] || CUDA_VISIBLE_DEVICES=$FT_GPU $PY scripts/finetune_funsd.py --task funsd \
-    --model $OUT/backbone --seeds 1 2 3 4 5 --tags $TAGS --out $RES/funsd_${SIZE}_scaled.json > $OUT.funsd.log 2>&1
+    --model $OUT/backbone --seeds 1 2 3 4 5 $EVAL_AT --tags $TAGS --out $RES/funsd_${SIZE}_scaled.json > $OUT.funsd.log 2>&1
 [ -f $RES/cord_${SIZE}_scaled.json ] || CUDA_VISIBLE_DEVICES=$FT_GPU $PY scripts/finetune_funsd.py --task cord --lr $CORD_LR \
-    --model $OUT/backbone --seeds 1 2 3 4 5 --tags $TAGS --out $RES/cord_${SIZE}_scaled.json > $OUT.cord.log 2>&1
+    --model $OUT/backbone --seeds 1 2 3 4 5 $EVAL_AT --tags $TAGS --out $RES/cord_${SIZE}_scaled.json > $OUT.cord.log 2>&1
 echo "EXPERIMENT_DONE $SIZE $(date -u +%FT%TZ)"

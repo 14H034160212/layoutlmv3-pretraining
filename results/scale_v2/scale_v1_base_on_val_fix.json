@@ -1,0 +1,21 @@
+{
+ "backbone": "runs/scale_v1/base/backbone",
+ "heads": "runs/scale_v1/base/pretraining_heads.pt",
+ "wpa_head": "mlp",
+ "val_pages": 512,
+ "orientation": "fix",
+ "image_mask_token_from_checkpoint": true,
+ "loss": 6.2116,
+ "mlm_loss": 2.5083,
+ "mim_loss": 3.6986,
+ "wpa_loss": 0.0047,
+ "mlm_acc": 0.5496,
+ "mim_acc": 0.2597,
+ "wpa_acc": 0.9982,
+ "wpa_auc": 1.0,
+ "wpa_bal_acc": 0.9975,
+ "wpa_majority": 0.7421,
+ "mim_codes_used": 4349,
+ "mim_code_perplexity": 1465.6,
+ "mim_majority": 0.0386
+}
