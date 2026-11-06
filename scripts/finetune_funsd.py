@@ -28,12 +28,37 @@ from transformers import (LayoutLMv3ForTokenClassification, LayoutLMv3Processor,
                           get_linear_schedule_with_warmup)
 
 DEFAULTS = {"funsd": dict(steps=1000, lr=1e-5, batch_size=2), "cord": dict(steps=1000, lr=5e-5, batch_size=4)}
+# --protocol paper: the LayoutLMv3 paper's settings (Sec. 3.3: 1,000 steps; FUNSD lr 1e-5, batch 16; CORD lr 5e-5,
+# batch 64), labels on the first sub-token of each word only, and words cut off by the 512-token limit scored as
+# missed (predicted "O") instead of being dropped from the evaluation.
+PAPER = {"funsd": dict(steps=1000, lr=1e-5, batch_size=16), "cord": dict(steps=1000, lr=5e-5, batch_size=64)}
 
 
-def encode(processor, examples):
+def encode(processor, examples, first_subword_only=False):
     images = [im.convert("RGB") for im in examples["image"]]
-    return processor(images, examples["tokens"], boxes=examples["bboxes"], word_labels=examples["ner_tags"],
-                     truncation=True, padding="max_length", max_length=512)
+    enc = processor(images, examples["tokens"], boxes=examples["bboxes"], word_labels=examples["ner_tags"],
+                    truncation=True, padding="max_length", max_length=512)
+    if first_subword_only:  # the tokenizer's own rule misses some words (e.g. "\u2610"/"\u2611" split in 2 tokens)
+        for i, labels in enumerate(enc["labels"]):
+            prev = None
+            for j, w in enumerate(enc.word_ids(i)):
+                if w is None or w == prev:
+                    labels[j] = -100
+                elif labels[j] == -100:
+                    raise ValueError(f"first sub-token of word {w} has no label")
+                if w is not None:
+                    prev = w
+    return enc
+
+
+def truncated_tags(processor, split, names):
+    """Gold tags of the words that the 512-token limit cuts off, per example (scored as missed in --protocol paper)."""
+    tails = []
+    for ex in split:
+        enc = processor.tokenizer(ex["tokens"], boxes=ex["bboxes"], truncation=True, max_length=512)
+        kept = max(w for w in enc.word_ids() if w is not None) + 1
+        tails.append([names[t] for t in ex["ner_tags"][kept:]])
+    return tails
 
 
 def cord_to_token_classification(ground_truth, label2id):
@@ -71,7 +96,7 @@ def load_task(task):
                    remove_columns=["ground_truth"], features=feats)
 
 
-def evaluate(model, test, labels, device):
+def evaluate(model, test, labels, device, tails=None):
     """Entity F1 (seqeval) and mean token loss on the test split."""
     was_training = model.training
     model.eval(); y_true, y_pred, losses = [], [], []
@@ -84,47 +109,56 @@ def evaluate(model, test, labels, device):
             for p, l in zip(pred.cpu().tolist(), b["labels"].cpu().tolist()):
                 keep = [(labels[pi], labels[li]) for pi, li in zip(p, l) if li != -100]
                 y_pred.append([x for x, _ in keep]); y_true.append([y for _, y in keep])
+    if tails is not None:  # words beyond the 512-token limit: gold tags kept, predicted "O"
+        assert len(tails) == len(y_true)
+        for t, p, tail in zip(y_true, y_pred, tails):
+            t.extend(tail); p.extend(["O"] * len(tail))
     if was_training:
         model.train()
     return f1_score(y_true, y_pred), float(np.mean(losses))
 
 
-def run(ds, model_path, seed, steps, lr, batch_size, device, eval_at=()):
+def run(ds, model_path, seed, steps, lr, batch_size, device, eval_at=(), paper=False, micro_batch=16):
     torch.manual_seed(seed); np.random.seed(seed)
     labels = ds["train"].features["ner_tags"].feature.names
     processor = LayoutLMv3Processor.from_pretrained("microsoft/layoutlmv3-base", apply_ocr=False)
     cols = ds["train"].column_names
-    train = ds["train"].map(lambda e: encode(processor, e), batched=True, remove_columns=cols)
-    test = ds["test"].map(lambda e: encode(processor, e), batched=True, remove_columns=cols)
+    train = ds["train"].map(lambda e: encode(processor, e, paper), batched=True, remove_columns=cols)
+    test = ds["test"].map(lambda e: encode(processor, e, paper), batched=True, remove_columns=cols)
+    tails = truncated_tags(processor, ds["test"], labels) if paper else None
     train.set_format("torch"); test.set_format("torch")
     model = LayoutLMv3ForTokenClassification.from_pretrained(
         model_path, num_labels=len(labels), id2label=dict(enumerate(labels)),
         label2id={l: i for i, l in enumerate(labels)}).to(device)
     g = torch.Generator().manual_seed(seed)
-    loader = DataLoader(train, batch_size=batch_size, shuffle=True, generator=g)
+    accum = max(1, batch_size // micro_batch) if paper else 1
+    assert batch_size % accum == 0
+    loader = DataLoader(train, batch_size=batch_size // accum, shuffle=True, generator=g, drop_last=paper)
     opt = torch.optim.AdamW(model.parameters(), lr=lr)
     sched = get_linear_schedule_with_warmup(opt, int(0.1 * steps), steps)
     # Learning curve (--eval_at): evaluation runs under no_grad in eval mode and uses no random numbers, so the
     # training trajectory and the final F1 are the same as without it.
     curve, window = [], []
     if 0 in eval_at:
-        f1, loss = evaluate(model, test, labels, device)
+        f1, loss = evaluate(model, test, labels, device, tails)
         curve.append({"step": 0, "train_loss": None, "test_loss": round(loss, 4), "test_f1": round(f1, 4)})
-    model.train(); step = 0
+    model.train(); step = 0; micro = 0
     while step < steps:
         for b in loader:
             b = {k: v.to(device) for k, v in b.items()}
             loss = model(**b).loss
-            loss.backward(); window.append(loss.item())
+            (loss / accum).backward(); window.append(loss.item()); micro += 1
+            if micro % accum:
+                continue
             opt.step(); sched.step(); opt.zero_grad(); step += 1
             if step in eval_at and step < steps:
-                f1, tl = evaluate(model, test, labels, device)
+                f1, tl = evaluate(model, test, labels, device, tails)
                 curve.append({"step": step, "train_loss": round(float(np.mean(window)), 4),
                               "test_loss": round(tl, 4), "test_f1": round(f1, 4)})
                 window = []
             if step >= steps:
                 break
-    f1, tl = evaluate(model, test, labels, device)
+    f1, tl = evaluate(model, test, labels, device, tails)
     if eval_at:
         curve.append({"step": steps, "train_loss": round(float(np.mean(window)), 4) if window else None,
                       "test_loss": round(tl, 4), "test_f1": round(f1, 4)})
@@ -140,14 +174,19 @@ def main():
     ap.add_argument("--lr", type=float)
     ap.add_argument("--batch_size", type=int)
     ap.add_argument("--out")
+    ap.add_argument("--protocol", choices=["legacy", "paper"], default="legacy",
+                    help="legacy: the settings of all results so far; paper: the paper's batch sizes, first-sub-token "
+                         "labels and truncated words scored as missed (see PAPER)")
+    ap.add_argument("--micro_batch", type=int, default=16, help="--protocol paper: per-forward batch (accumulation)")
     ap.add_argument("--eval_at", type=int, nargs="*", default=[],
                     help="also evaluate at these fine-tuning steps (0 = before training) and save the learning curve")
     ap.add_argument("--tags", nargs="*", default=[], help="free-form tags for experiments/registry.jsonl")
     a = ap.parse_args()
-    hp = {k: getattr(a, k) if getattr(a, k) is not None else v for k, v in DEFAULTS[a.task].items()}
+    base_hp = PAPER if a.protocol == "paper" else DEFAULTS
+    hp = {k: getattr(a, k) if getattr(a, k) is not None else v for k, v in base_hp[a.task].items()}
     out_dir = os.path.dirname(os.path.abspath(a.out)) if a.out else None
     with RunTracker(f"finetune_{a.task}", a, tags=a.tags) as tracker:
-        tracker.config.update(task=a.task, model=a.model, seeds=a.seeds, **hp,
+        tracker.config.update(task=a.task, model=a.model, seeds=a.seeds, protocol=a.protocol, micro_batch=a.micro_batch, **hp,
                               dataset="nielsr/funsd-layoutlmv3" if a.task == "funsd" else "naver-clova-ix/cord-v2")
         tracker.outputs["results"] = os.path.abspath(a.out) if a.out else None
         res = finetune(a, hp, tracker)
@@ -163,14 +202,15 @@ def finetune(a, hp, tracker):
     t0 = time.time()
     f1s, curves = [], {}
     for s in a.seeds:
-        f1, curve = run(ds, a.model, s, device=device, eval_at=set(a.eval_at), **hp)
+        f1, curve = run(ds, a.model, s, device=device, eval_at=set(a.eval_at), paper=a.protocol == "paper",
+                        micro_batch=a.micro_batch, **hp)
         f1s.append(f1)
         if curve:
             curves[s] = curve
             print(json.dumps({"seed": s, "curve": curve}), flush=True)
         tracker.metrics.setdefault("per_seed", {})[s] = round(f1s[-1], 4)
         print(json.dumps({"seed": s, "f1": round(f1s[-1], 4)}), flush=True)
-    res = {"task": a.task, "model": a.model, **hp, "seeds": a.seeds, "f1": [round(f, 4) for f in f1s],
+    res = {"task": a.task, "model": a.model, "protocol": a.protocol, **hp, "seeds": a.seeds, "f1": [round(f, 4) for f in f1s],
            "mean": round(float(np.mean(f1s)), 4),
            "std": round(float(np.std(f1s, ddof=1)), 4) if len(f1s) > 1 else 0.0,
            "minutes": round((time.time() - t0) / 60, 1)}
