@@ -301,6 +301,30 @@ Per-seed differences, 404k minus original:
 - Each resume restarts the data stream with a new shuffle seed, so some pages were seen more often than others.
 - A few malformed files are skipped, so slightly fewer than 404,507 pages were readable.
 
+**Fine-tuning learning curves: continued checkpoints start where the released one starts.**
+- What was measured: the test loss and entity F1 at fine-tuning steps 0, 25, 50, 100, ..., 1000 (`--eval_at`, `scripts/run_curves.sh`, `scripts/plot_curves.py`, `results/curves_v1/`).
+- Setup: base, seeds 1-3, the same recipes as above.
+- Evaluation does not change training: seed 1 on FUNSD ends at exactly the original run's 0.8838.
+
+![Fine-tuning curves](results/curves_v1/finetune_curves.png)
+
+FUNSD, mean test F1 / test loss over seeds 1-3:
+
+| | step 0 | step 100 | step 150 | step 200 | step 400 | step 1000 |
+|---|---:|---:|---:|---:|---:|---:|
+| `microsoft/layoutlmv3-base` | 0.05 / 1.99 | 0.64 / 0.96 | 0.81 / 0.69 | 0.82 / 0.56 | 0.87 / 0.50 | 0.89 / 0.55 |
+| + 42k pages | 0.05 / 1.97 | 0.53 / 1.13 | 0.77 / 0.71 | 0.82 / 0.57 | 0.87 / 0.52 | 0.90 / 0.55 |
+| + 404k pages | 0.05 / 1.99 | 0.49 / 1.16 | 0.79 / 0.68 | 0.83 / 0.56 | 0.86 / 0.49 | 0.90 / 0.52 |
+| random init + 42k pages | 0.05 / 2.11 | 0.28 / 1.32 | 0.30 / 1.24 | 0.33 / 1.17 | 0.37 / 1.12 | 0.40 / 1.15 |
+
+CORD shows the same picture. Step 1000: 0.94 / 0.23 (original), 0.93 / 0.23 (42k), 0.93 / 0.22 (404k), 0.79 / 0.54 (random init).
+
+- **Step 0.** All four start at the same test loss (about 2.0 on FUNSD, 4.1 on CORD), because the token classifier is new and random in every case.
+- **Continued checkpoints.** From there, both continued checkpoints follow the released checkpoint's curve and reach F1 above 0.8 by step 150-200.
+- **Random init.** The randomly initialised model with the same 42k-page pre-training plateaus at 0.40 (FUNSD) and 0.79 (CORD).
+- **Small early lag.** On FUNSD, the continued checkpoints are slightly behind at step 100 (F1 0.49-0.53 against 0.64). They catch up by step 150-200. We did not see this on CORD.
+- **What this shows.** Continued pre-training keeps the released model's starting point and does not damage it. It does not show that continued pre-training improves on it.
+
 **Large** is still running and will be added here.
 
 ### Earlier sanity run: FUNSD train only (k-means targets)

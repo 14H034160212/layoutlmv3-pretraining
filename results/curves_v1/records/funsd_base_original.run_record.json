@@ -1,0 +1,124 @@
+{
+ "run_id": "20261106T040632Z-finetune_funsd-dc8999",
+ "kind": "finetune_funsd",
+ "status": "completed",
+ "backfilled": false,
+ "tags": [
+  "curves-v1",
+  "base",
+  "original"
+ ],
+ "start_utc": "2026-11-06T04:06:32+00:00",
+ "end_utc": "2026-11-06T04:19:20+00:00",
+ "git": {
+  "commit": "aa38c0d9886f7adac8fcc79c51ae712e9156dbde",
+  "dirty": true,
+  "diff_sha256": "3cbbbb22edf34b93093eef4fa449519582b442f92d2f60270cd9823cb92e35f6",
+  "untracked": [
+   "scripts/run_curves.sh"
+  ]
+ },
+ "command": "python scripts/finetune_funsd.py --task funsd --model microsoft/layoutlmv3-base --seeds 1 2 3 --eval_at 0 25 50 100 150 200 300 400 600 800 --tags curves-v1 base original --out results/curves_v1/funsd_base_original.json",
+ "argv": [
+  "scripts/finetune_funsd.py",
+  "--task",
+  "funsd",
+  "--model",
+  "microsoft/layoutlmv3-base",
+  "--seeds",
+  "1",
+  "2",
+  "3",
+  "--eval_at",
+  "0",
+  "25",
+  "50",
+  "100",
+  "150",
+  "200",
+  "300",
+  "400",
+  "600",
+  "800",
+  "--tags",
+  "curves-v1",
+  "base",
+  "original",
+  "--out",
+  "results/curves_v1/funsd_base_original.json"
+ ],
+ "cwd": "/data/qbao775/layoutlmv3-pretraining",
+ "args": {
+  "model": "microsoft/layoutlmv3-base",
+  "task": "funsd",
+  "seeds": [
+   1,
+   2,
+   3
+  ],
+  "steps": null,
+  "lr": null,
+  "batch_size": null,
+  "out": "results/curves_v1/funsd_base_original.json",
+  "eval_at": [
+   0,
+   25,
+   50,
+   100,
+   150,
+   200,
+   300,
+   400,
+   600,
+   800
+  ],
+  "tags": [
+   "curves-v1",
+   "base",
+   "original"
+  ]
+ },
+ "config": {
+  "task": "funsd",
+  "model": "microsoft/layoutlmv3-base",
+  "seeds": [
+   1,
+   2,
+   3
+  ],
+  "steps": 1000,
+  "lr": 1e-05,
+  "batch_size": 2,
+  "dataset": "nielsr/funsd-layoutlmv3"
+ },
+ "environment": {
+  "python": "3.11.7",
+  "hostname": "hgx2.novalocal",
+  "cuda_visible_devices": "3",
+  "torch": "2.6.0+cu124",
+  "cuda": "12.4",
+  "gpu": [
+   "NVIDIA A100-SXM4-80GB"
+  ],
+  "transformers": "4.57.6"
+ },
+ "outputs": {
+  "results": "/data/qbao775/layoutlmv3-pretraining/results/curves_v1/funsd_base_original.json"
+ },
+ "metrics": {
+  "per_seed": {
+   "1": 0.8838,
+   "2": 0.8972,
+   "3": 0.9014
+  },
+  "f1": [
+   0.8838,
+   0.8972,
+   0.9014
+  ],
+  "mean": 0.8942,
+  "std": 0.0092,
+  "minutes": 12.8
+ },
+ "error": null
+}

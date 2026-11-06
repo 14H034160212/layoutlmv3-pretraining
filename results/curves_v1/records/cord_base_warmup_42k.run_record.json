@@ -1,0 +1,126 @@
+{
+ "run_id": "20261106T053024Z-finetune_cord-7c496f",
+ "kind": "finetune_cord",
+ "status": "completed",
+ "backfilled": false,
+ "tags": [
+  "curves-v1",
+  "base",
+  "warmup_42k"
+ ],
+ "start_utc": "2026-11-06T05:30:24+00:00",
+ "end_utc": "2026-11-06T05:42:41+00:00",
+ "git": {
+  "commit": "0579f2e2b86d5e6839ca5f8075c06c060255a3e9",
+  "dirty": true,
+  "diff_sha256": "99aed09873f043c97fac3d1a7315ad09fbd4a6b59c6cde2a0f23e72318401773",
+  "untracked": [
+   "results/curves_v1/"
+  ]
+ },
+ "command": "python scripts/finetune_funsd.py --task cord --lr 5e-5 --model runs/idl_warmup_base_pretrained/backbone --seeds 1 2 3 --eval_at 0 25 50 100 150 200 300 400 600 800 --tags curves-v1 base warmup_42k --out results/curves_v1/cord_base_warmup_42k.json",
+ "argv": [
+  "scripts/finetune_funsd.py",
+  "--task",
+  "cord",
+  "--lr",
+  "5e-5",
+  "--model",
+  "runs/idl_warmup_base_pretrained/backbone",
+  "--seeds",
+  "1",
+  "2",
+  "3",
+  "--eval_at",
+  "0",
+  "25",
+  "50",
+  "100",
+  "150",
+  "200",
+  "300",
+  "400",
+  "600",
+  "800",
+  "--tags",
+  "curves-v1",
+  "base",
+  "warmup_42k",
+  "--out",
+  "results/curves_v1/cord_base_warmup_42k.json"
+ ],
+ "cwd": "/data/qbao775/layoutlmv3-pretraining",
+ "args": {
+  "model": "runs/idl_warmup_base_pretrained/backbone",
+  "task": "cord",
+  "seeds": [
+   1,
+   2,
+   3
+  ],
+  "steps": null,
+  "lr": 5e-05,
+  "batch_size": null,
+  "out": "results/curves_v1/cord_base_warmup_42k.json",
+  "eval_at": [
+   0,
+   25,
+   50,
+   100,
+   150,
+   200,
+   300,
+   400,
+   600,
+   800
+  ],
+  "tags": [
+   "curves-v1",
+   "base",
+   "warmup_42k"
+  ]
+ },
+ "config": {
+  "task": "cord",
+  "model": "runs/idl_warmup_base_pretrained/backbone",
+  "seeds": [
+   1,
+   2,
+   3
+  ],
+  "steps": 1000,
+  "lr": 5e-05,
+  "batch_size": 4,
+  "dataset": "naver-clova-ix/cord-v2"
+ },
+ "environment": {
+  "python": "3.11.7",
+  "hostname": "hgx2.novalocal",
+  "cuda_visible_devices": "4",
+  "torch": "2.6.0+cu124",
+  "cuda": "12.4",
+  "gpu": [
+   "NVIDIA A100-SXM4-80GB"
+  ],
+  "transformers": "4.57.6"
+ },
+ "outputs": {
+  "results": "/data/qbao775/layoutlmv3-pretraining/results/curves_v1/cord_base_warmup_42k.json"
+ },
+ "metrics": {
+  "per_seed": {
+   "1": 0.9379,
+   "2": 0.9313,
+   "3": 0.9289
+  },
+  "f1": [
+   0.9379,
+   0.9313,
+   0.9289
+  ],
+  "mean": 0.9327,
+  "std": 0.0047,
+  "minutes": 12.3
+ },
+ "error": null
+}
