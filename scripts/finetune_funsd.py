@@ -71,7 +71,25 @@ def load_task(task):
                    remove_columns=["ground_truth"], features=feats)
 
 
-def run(ds, model_path, seed, steps, lr, batch_size, device):
+def evaluate(model, test, labels, device):
+    """Entity F1 (seqeval) and mean token loss on the test split."""
+    was_training = model.training
+    model.eval(); y_true, y_pred, losses = [], [], []
+    with torch.no_grad():
+        for b in DataLoader(test, batch_size=8):
+            b = {k: v.to(device) for k, v in b.items()}
+            out = model(**b)
+            losses.append(out.loss.item())
+            pred = out.logits.argmax(-1)
+            for p, l in zip(pred.cpu().tolist(), b["labels"].cpu().tolist()):
+                keep = [(labels[pi], labels[li]) for pi, li in zip(p, l) if li != -100]
+                y_pred.append([x for x, _ in keep]); y_true.append([y for _, y in keep])
+    if was_training:
+        model.train()
+    return f1_score(y_true, y_pred), float(np.mean(losses))
+
+
+def run(ds, model_path, seed, steps, lr, batch_size, device, eval_at=()):
     torch.manual_seed(seed); np.random.seed(seed)
     labels = ds["train"].features["ner_tags"].feature.names
     processor = LayoutLMv3Processor.from_pretrained("microsoft/layoutlmv3-base", apply_ocr=False)
@@ -86,23 +104,31 @@ def run(ds, model_path, seed, steps, lr, batch_size, device):
     loader = DataLoader(train, batch_size=batch_size, shuffle=True, generator=g)
     opt = torch.optim.AdamW(model.parameters(), lr=lr)
     sched = get_linear_schedule_with_warmup(opt, int(0.1 * steps), steps)
+    # Learning curve (--eval_at): evaluation runs under no_grad in eval mode and uses no random numbers, so the
+    # training trajectory and the final F1 are the same as without it.
+    curve, window = [], []
+    if 0 in eval_at:
+        f1, loss = evaluate(model, test, labels, device)
+        curve.append({"step": 0, "train_loss": None, "test_loss": round(loss, 4), "test_f1": round(f1, 4)})
     model.train(); step = 0
     while step < steps:
         for b in loader:
             b = {k: v.to(device) for k, v in b.items()}
-            model(**b).loss.backward()
+            loss = model(**b).loss
+            loss.backward(); window.append(loss.item())
             opt.step(); sched.step(); opt.zero_grad(); step += 1
+            if step in eval_at and step < steps:
+                f1, tl = evaluate(model, test, labels, device)
+                curve.append({"step": step, "train_loss": round(float(np.mean(window)), 4),
+                              "test_loss": round(tl, 4), "test_f1": round(f1, 4)})
+                window = []
             if step >= steps:
                 break
-    model.eval(); y_true, y_pred = [], []
-    with torch.no_grad():
-        for b in DataLoader(test, batch_size=8):
-            b = {k: v.to(device) for k, v in b.items()}
-            pred = model(**b).logits.argmax(-1)
-            for p, l in zip(pred.cpu().tolist(), b["labels"].cpu().tolist()):
-                keep = [(labels[pi], labels[li]) for pi, li in zip(p, l) if li != -100]
-                y_pred.append([x for x, _ in keep]); y_true.append([y for _, y in keep])
-    return f1_score(y_true, y_pred)
+    f1, tl = evaluate(model, test, labels, device)
+    if eval_at:
+        curve.append({"step": steps, "train_loss": round(float(np.mean(window)), 4) if window else None,
+                      "test_loss": round(tl, 4), "test_f1": round(f1, 4)})
+    return f1, curve
 
 
 def main():
@@ -114,6 +140,8 @@ def main():
     ap.add_argument("--lr", type=float)
     ap.add_argument("--batch_size", type=int)
     ap.add_argument("--out")
+    ap.add_argument("--eval_at", type=int, nargs="*", default=[],
+                    help="also evaluate at these fine-tuning steps (0 = before training) and save the learning curve")
     ap.add_argument("--tags", nargs="*", default=[], help="free-form tags for experiments/registry.jsonl")
     a = ap.parse_args()
     hp = {k: getattr(a, k) if getattr(a, k) is not None else v for k, v in DEFAULTS[a.task].items()}
@@ -133,15 +161,21 @@ def finetune(a, hp, tracker):
     device = "cuda" if torch.cuda.is_available() else "cpu"
     ds = load_task(a.task)
     t0 = time.time()
-    f1s = []
+    f1s, curves = [], {}
     for s in a.seeds:
-        f1s.append(run(ds, a.model, s, device=device, **hp))
+        f1, curve = run(ds, a.model, s, device=device, eval_at=set(a.eval_at), **hp)
+        f1s.append(f1)
+        if curve:
+            curves[s] = curve
+            print(json.dumps({"seed": s, "curve": curve}), flush=True)
         tracker.metrics.setdefault("per_seed", {})[s] = round(f1s[-1], 4)
         print(json.dumps({"seed": s, "f1": round(f1s[-1], 4)}), flush=True)
     res = {"task": a.task, "model": a.model, **hp, "seeds": a.seeds, "f1": [round(f, 4) for f in f1s],
            "mean": round(float(np.mean(f1s)), 4),
            "std": round(float(np.std(f1s, ddof=1)), 4) if len(f1s) > 1 else 0.0,
            "minutes": round((time.time() - t0) / 60, 1)}
+    if curves:
+        res["curves"] = curves
     print(json.dumps(res))
     if a.out:
         with open(a.out, "w") as f:
