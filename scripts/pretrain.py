@@ -117,20 +117,25 @@ def build_idl_corpus(a, processor):
     if a.exclude_funsd_test:
         funsd = load_dataset("nielsr/funsd-layoutlmv3", split="test")
         exclude = NgramBlocklist(funsd["tokens"], n=5, threshold=0.5)
-    common = dict(max_pages_per_doc=a.pages_per_doc, min_words=a.min_words, exclude=exclude)
+    common = dict(max_pages_per_doc=a.pages_per_doc, min_words=a.min_words, exclude=exclude,
+                  orientation=a.idl_orientation)
     train = IDLPages(resolve_idl_sources(parse_range(a.idl_shards), download=not a.idl_stream), processor,
                      max_pages=a.max_pages, shuffle_buffer=a.shuffle_buffer, repeat=True, seed=a.data_seed, **common)
     val_ds = IDLPages(resolve_idl_sources(parse_range(a.idl_val_shards), download=not a.idl_stream), processor,
                       max_pages=a.val_docs, **common)
     val = list(val_ds)
+    if a.resume_batches:  # continue the page stream where the interrupted run stopped (same seed, same workers)
+        train.skip_batches(a.resume_batches, a.batch_size)
 
     def fit_images():
         it = iter(IDLPages(train.sources, processor, max_pages=a.kmeans_fit_pages, **common))
         while chunk := [x["pixel_values"] for _, x in zip(range(16), it)]:
             yield torch.stack(chunk)
 
-    info = {"train_shards": a.idl_shards, "val_shards": a.idl_val_shards, "val_pages": len(val)}
-    if a.count_pages:  # one cheap pass over the OCR json only (no image decoding)
+    info = {"train_shards": a.idl_shards, "val_shards": a.idl_val_shards, "val_pages": len(val),
+            "orientation": a.idl_orientation, "val_pages_turned": sum(1 for x in val if x["rotation"]),
+            "val_keys": [x["key"] for x in val]}
+    if a.count_pages:  # one cheap pass over the OCR json only (no image decoding, so no orientation check)
         info["train_pages"] = sum(1 for _ in IDLPages(train.sources, processor, max_pages=a.max_pages,
                                                       **common).raw_pages(decode_images=False))
         if exclude is not None:
@@ -159,7 +164,13 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--shuffle_buffer", type=int, default=500)
     ap.add_argument("--exclude_funsd_test", action="store_true",
                     help="drop IDL pages whose 5-grams largely occur in FUNSD test documents")
-    ap.add_argument("--count_pages", action="store_true", help="count training pages before training (logged)")
+    ap.add_argument("--count_pages", action="store_true",
+                    help="count training pages before training (logged; from the OCR json only, so pages dropped by "
+                         "the orientation check are still counted)")
+    ap.add_argument("--idl_orientation", choices=["fix", "drop", "off"], default="fix",
+                    help="IDL frames stored turned relative to their OCR boxes: fix (turn 90/270-degree pages upright, "
+                         "drop 180-degree and ambiguous ones), drop (drop all of them) or off (as stored; the "
+                         "behaviour before scale-v2)"),
     # MIM targets
     ap.add_argument("--image_tokenizer", choices=["kmeans", "dalle"], default="kmeans")
     ap.add_argument("--image_vocab_size", type=int, default=512, help="k-means codebook size (dalle: 8192)")
@@ -200,8 +211,11 @@ def build_parser() -> argparse.ArgumentParser:
                     help="save model, optimiser and scheduler state to output_dir/train_state.pt every N steps "
                          "(0: never); removed when the run finishes")
     ap.add_argument("--resume", action="store_true",
-                    help="continue from output_dir/train_state.pt if it exists. The data stream restarts with a "
-                         "new seed, so a resumed run does not see exactly the pages an uninterrupted run would")
+                    help="continue from output_dir/train_state.pt if it exists. With --corpus idl the page stream "
+                         "continues where it stopped: the workers re-read and skip the pages of the batches already "
+                         "used (same seed, --batch_size and --num_workers required), so no page is replayed. Masks "
+                         "after a resume come from a new random stream, seeded with (seed, step). With --corpus hf "
+                         "the epoch order is reshuffled instead")
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--tags", nargs="*", default=[], help="free-form tags for experiments/registry.jsonl")
     return ap
@@ -223,10 +237,17 @@ def train(a, run):
     device = "cuda" if torch.cuda.is_available() else "cpu"
     state_path = out_dir / "train_state.pt"
     state = torch.load(state_path, map_location="cpu", weights_only=False) if a.resume and state_path.exists() else None
-    a.data_seed = a.seed  # data order and masks; a resumed run draws a new order rather than replaying the first pages
+    # The page order is a function of the seed only. On resume the IDL workers skip the batches already used
+    # (step x grad_accum micro-batches), so the stream continues exactly where the interrupted run stopped;
+    # the masks of the remaining batches are drawn from a new stream seeded with (seed, step).
+    a.data_seed, a.resume_batches, mask_seed = a.seed, 0, a.seed
     if state is not None:
-        a.data_seed = a.seed + state["step"]
-        print(f"resuming from step {state['step']} (data seed {a.data_seed})", flush=True)
+        if state.get("batch_size", a.batch_size) != a.batch_size or state.get("num_workers", a.num_workers) != a.num_workers:
+            raise SystemExit("--resume needs the --batch_size and --num_workers of the interrupted run "
+                             f"({state.get('batch_size')}, {state.get('num_workers')})")
+        a.resume_batches = state["step"] * a.grad_accum
+        mask_seed = (a.seed, state["step"])
+        print(f"resuming from step {state['step']}: skipping {a.resume_batches} batches of the page stream", flush=True)
     processor = LayoutLMv3Processor.from_pretrained(a.model, apply_ocr=False)
 
     t0 = time.time()
@@ -249,7 +270,7 @@ def train(a, run):
         dataset=a.dataset if a.corpus == "hf" else None, seed=a.seed, head_warmup_steps=a.head_warmup_steps,
         head_lr=a.head_lr, max_steps=a.max_steps, lr=a.lr, layer_decay=a.layer_decay,
         effective_batch=a.batch_size * a.grad_accum, mim_weight=a.mim_weight, freeze_layers=a.freeze_layers,
-        corpus_info={k: v for k, v in info.items() if k != "args"})
+        corpus_info={k: v for k, v in info.items() if k not in ("args", "val_keys")})
 
     model = LayoutLMv3ForPreTraining.from_backbone(a.model, img_tok.vocab_size, random_init=a.random_init,
                                                  wpa_head=a.wpa_head).to(device)
@@ -259,7 +280,7 @@ def train(a, run):
     (out_dir / "run_info.json").write_text(json.dumps(info, indent=1))
     if a.gradient_checkpointing:
         model.gradient_checkpointing_enable(gradient_checkpointing_kwargs={"use_reentrant": False})
-    collate = PretrainingCollator(processor.tokenizer, None, seed=a.data_seed)
+    collate = PretrainingCollator(processor.tokenizer, None, seed=mask_seed)    # seeded per DataLoader worker
     train_loader = DataLoader(train, batch_size=a.batch_size, drop_last=True, collate_fn=collate,
                               shuffle=a.corpus == "hf", num_workers=a.num_workers,
                               persistent_workers=a.num_workers > 0, pin_memory=device == "cuda",
@@ -357,7 +378,8 @@ def train(a, run):
             if a.state_every and step % a.state_every == 0 and step < total_steps and not done:
                 save_train_state(state_path, model=model.state_dict(), optimizer=opt.state_dict(),
                                  scheduler=sched.state_dict(), step=step, best=best, bad_evals=bad_evals, log=log,
-                                 minutes=round((time.time() - t0) / 60, 2),
+                                 minutes=round((time.time() - t0) / 60, 2), batch_size=a.batch_size,
+                                 num_workers=a.num_workers,
                                  resumed_from_steps=run.metrics.get("resumed_from_steps", []))
             if step >= total_steps:
                 done = True

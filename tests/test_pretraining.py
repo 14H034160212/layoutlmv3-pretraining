@@ -205,7 +205,7 @@ def test_idl_pages_from_webdataset_tar(tmp_path):
     ds = IDLPages([str(path)], Proc(), max_pages_per_doc=2)
     pages = list(ds.raw_pages())
     assert [p["key"] for p in pages] == ["doc1/0", "doc1/1"]           # 2 pages max, doc2 too short
-    assert pages[0]["image"].mode == "RGB" and len(pages[0]["tokens"]) == 10
+    assert pages[0]["image"].mode == "L" and len(pages[0]["tokens"]) == 10 and pages[0]["rotation"] == 0
     assert pages[0]["bboxes"][0] == [100, 100, 600, 120]
     items = list(ds)
     assert len(items) == 2 and items[0]["bbox"].shape == (10, 4)
@@ -453,3 +453,150 @@ def test_idl_pages_skips_malformed_tiff(monkeypatch):
 
     monkeypatch.setattr(corpus.Image, "open", lambda f: BrokenSeek())
     assert list(corpus.idl_pages(sample)) == []
+
+
+# ------------------------------------------------------------------ data-pipeline fixes (scale-v2)
+
+def _text_page(lines, size=(1000, 1300)):
+    """An upright page with 'text' (vertical strokes) inside each 0-1000 line box, and the OCR json page."""
+    from PIL import Image, ImageDraw
+    w, h = size
+    im = Image.new("L", size, 255)
+    d = ImageDraw.Draw(im)
+    for x0, y0, x1, y1 in lines:
+        for x in range(x0 * w // 1000, x1 * w // 1000, 6):
+            d.rectangle([x, y0 * h // 1000, x + 2, y1 * h // 1000], fill=0)
+    page = {"text": [" ".join(f"w{i}{j}" for j in range(6)) for i in range(len(lines))],
+            "bbox": [[x0 / 1000, y0 / 1000, (x1 - x0) / 1000, (y1 - y0) / 1000] for x0, y0, x1, y1 in lines],
+            "score": [0.99] * len(lines)}
+    return im, page
+
+
+LINES = [(80, 60 + 40 * i, 80 + 60 * (i % 7) + 300, 75 + 40 * i) for i in range(14)]   # upper part, ragged right
+
+
+@pytest.mark.parametrize("k", [0, 1, 2, 3])
+def test_page_orientation_finds_the_turn_that_fits_the_boxes(k):
+    from PIL import Image
+    from layoutlmv3_pretraining.corpus import line_boxes_to_words, page_orientation
+    upright, page = _text_page(LINES)
+    _, boxes = line_boxes_to_words(page["text"], page["bbox"])
+    # stored frame = upright turned clockwise by k quarter turns; k counter-clockwise turns undo it
+    stored = upright.rotate(-90 * k, expand=True)
+    assert page_orientation(stored, boxes) == k
+    assert page_orientation(stored.transpose(Image.Transpose.ROTATE_90).rotate(-90, expand=True), boxes) == k
+    assert page_orientation(Image.new("L", (300, 400), 255), boxes) == 0          # blank page: keep as stored
+
+
+def test_idl_pages_turns_or_drops_rotated_frames():
+    import io, json
+    from layoutlmv3_pretraining.corpus import idl_pages, page_orientation
+    upright, page = _text_page(LINES)
+    frames = [upright, upright.rotate(-90, expand=True), upright.rotate(-270, expand=True),
+              upright.rotate(180, expand=True)]                     # as stored: upright, 90 CW, 90 CCW, upside down
+    tif = io.BytesIO(); frames[0].save(tif, format="TIFF", save_all=True, append_images=frames[1:])
+    sample = {"__key__": "d", "json": json.dumps({"pages": [page] * 4}).encode(), "tif": tif.getvalue()}
+
+    stats = {}
+    fixed = list(idl_pages(sample, max_pages_per_doc=4, stats=stats))
+    assert [(p["key"], p["rotation"]) for p in fixed] == [("d/0", 0), ("d/1", 90), ("d/2", 270)]   # 180 dropped
+    assert stats == {"turned_90": 1, "turned_270": 1, "dropped_rotated_180": 1}
+    for p in fixed:                                                  # every kept page now fits its boxes as is
+        assert p["image"].size[0] < p["image"].size[1] and page_orientation(p["image"], p["bboxes"]) == 0
+    assert [p["key"] for p in idl_pages(sample, max_pages_per_doc=4, orientation="drop")] == ["d/0"]
+    off = list(idl_pages(sample, max_pages_per_doc=4, orientation="off"))
+    assert [p["rotation"] for p in off] == [0, 0, 0, 0] and off[1]["image"].size[0] > off[1]["image"].size[1]
+    with pytest.raises(ValueError):
+        list(idl_pages(sample, orientation="sideways"))
+
+
+class _ConstantPages(torch.utils.data.IterableDataset):
+    """Identical features from every worker: any difference between masks comes from the collator's RNG."""
+
+    def __iter__(self):
+        ids = torch.arange(5, 69); ids[0], ids[-1] = 0, 2
+        for _ in range(4):
+            yield {"input_ids": ids, "bbox": torch.tensor([[0, 0, 500, 500]] * 64),
+                   "attention_mask": torch.ones(64, dtype=torch.long), "pixel_values": torch.zeros(3, 4, 4)}
+
+
+class _Tok:
+    all_special_ids, mask_token_id = [0, 1, 2], 3
+
+
+def _masks(seed, workers):
+    from torch.utils.data import DataLoader
+    from layoutlmv3_pretraining.data import PretrainingCollator
+    dl = DataLoader(_ConstantPages(), batch_size=2, num_workers=workers,
+                    collate_fn=PretrainingCollator(_Tok(), None, seed=seed))
+    return [(b["mlm_labels"] != -100, b["bool_masked_pos"]) for b in dl]
+
+
+def test_collator_draws_different_masks_in_each_worker():
+    batches = _masks(42, workers=2)                 # in-order loading: batch 2i from worker 0, 2i + 1 from worker 1
+    assert len(batches) == 4
+    for a, b in ((batches[0], batches[1]), (batches[2], batches[3])):
+        assert not torch.equal(a[0], b[0]) and not torch.equal(a[1], b[1])
+    again = _masks(42, workers=2)                   # reproducible run to run
+    assert all(torch.equal(x[0], y[0]) and torch.equal(x[1], y[1]) for x, y in zip(batches, again))
+    other = _masks((42, 2000), workers=2)           # a resumed run (seed, step) draws a new stream
+    assert not torch.equal(batches[0][0], other[0][0])
+
+
+def test_validation_masks_fixed_in_the_main_process():
+    from layoutlmv3_pretraining.data import PretrainingCollator
+    feats = list(_ConstantPages())
+    a = PretrainingCollator(_Tok(), None, seed=0)(feats)
+    b = PretrainingCollator(_Tok(), None, seed=0)(feats)
+    assert torch.equal(a["mlm_labels"], b["mlm_labels"]) and torch.equal(a["bool_masked_pos"], b["bool_masked_pos"])
+    # an int seed in the main process is the same stream as before the per-worker seeding (old validation masks)
+    expected = span_mask(list(range(1, 63)), 0.3, 3.0, np.random.default_rng(0))
+    assert (a["mlm_labels"][0] != -100).nonzero().flatten().tolist() == expected
+    assert torch.equal(a["bool_masked_pos"][0], torch.from_numpy(blockwise_mask(14, 14, 0.4, rng=random.Random(0))).reshape(-1))
+
+
+class _KeyProcessor:
+    """Stands in for LayoutLMv3Processor; the key travels in the item."""
+
+    def __call__(self, images, words, boxes, **kw):
+        return {k: torch.zeros(1, 1, dtype=torch.long) for k in ("input_ids", "bbox", "attention_mask", "pixel_values")}
+
+
+def _keys(batch):
+    return [x["key"] for x in batch]
+
+
+def _idl_tars(tmp_path, n_tars=3, docs=15):
+    import io, json, tarfile
+    from PIL import Image
+    page = {"text": ["one two three four five six seven", "eight nine ten"],
+            "bbox": [[0.1, 0.1, 0.5, 0.02], [0.1, 0.2, 0.3, 0.02]], "score": [0.9, 0.9]}
+    tif = io.BytesIO(); Image.new("L", (100, 130), 255).save(tif, format="TIFF")
+    paths = []
+    for t in range(n_tars):
+        path = tmp_path / f"shard{t}.tar"
+        with tarfile.open(path, "w") as tar:
+            for d in range(docs):
+                for name, data in ((f"t{t}d{d:02d}.json", json.dumps({"pages": [page] * 2}).encode()),
+                                   (f"t{t}d{d:02d}.tif", tif.getvalue())):
+                    info = tarfile.TarInfo(name); info.size = len(data); tar.addfile(info, io.BytesIO(data))
+        paths.append(str(path))
+    return paths
+
+
+@pytest.mark.parametrize("workers", [0, 2, 3])
+def test_resumed_stream_continues_without_replay(tmp_path, workers):
+    import itertools
+    from torch.utils.data import DataLoader
+    from layoutlmv3_pretraining.corpus import IDLPages
+    sources = _idl_tars(tmp_path)                       # 45 pages (single-frame TIFFs: one page per document)
+
+    def stream(skip=0):
+        ds = IDLPages(sources, _KeyProcessor(), shuffle_buffer=7, repeat=True, seed=5).skip_batches(skip, 4)
+        dl = DataLoader(ds, batch_size=4, collate_fn=_keys, num_workers=workers)
+        return list(itertools.chain.from_iterable(itertools.islice(iter(dl), 40 - skip)))
+
+    full = stream()                                     # 40 batches = 160 pages, ~3.5 passes over the corpus
+    resumed = stream(skip=13)                           # a run killed after 13 batches and resumed
+    assert resumed == full[13 * 4:]                     # continues with the same sequence, nothing replayed
+    assert stream(skip=0)[:8] == full[:8] and full[:8] != resumed[:8]

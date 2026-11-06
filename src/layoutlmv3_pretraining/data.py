@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import random
+from collections.abc import Sequence
 
 import numpy as np
 import torch
+from torch.utils.data import get_worker_info
 
 from .masking import blockwise_mask, span_mask, wpa_labels
 
@@ -31,15 +33,41 @@ class PretrainingCollator:
     If ``image_tokenizer`` is None, ``mim_labels`` are left out so that they can be
     computed later on the GPU with ``add_mim_labels`` (useful for a dVAE tokenizer
     and with DataLoader worker processes).
+
+    Random masks: every DataLoader worker gets a copy of the collator, so the random generators are created lazily,
+    in the process that uses them. In the main process they are seeded with ``seed`` (an int seed gives the same
+    masks as before this was lazy; validation batches are collated there), in worker ``w`` with ``(seed, w)``, so
+    workers draw different masks and a run is still reproducible. ``seed`` may be an int, a sequence of ints
+    (e.g. ``(seed, resume_step)``) or None (fresh entropy).
     """
 
     def __init__(self, tokenizer, image_tokenizer=None, mlm_ratio: float = 0.3, mim_ratio: float = 0.4,
-                 poisson_lambda: float = 3.0, grid: int = 14, seed: int | None = None):
+                 poisson_lambda: float = 3.0, grid: int = 14, seed: int | Sequence[int] | None = None):
         self.tok, self.img_tok = tokenizer, image_tokenizer
         self.mlm_ratio, self.mim_ratio, self.lam, self.grid = mlm_ratio, mim_ratio, poisson_lambda, grid
-        self.np_rng, self.py_rng = np.random.default_rng(seed), random.Random(seed)
+        self.seed = seed
+        self._rng_owner = None
+
+    def _seed_rngs(self) -> None:
+        info = get_worker_info()
+        owner = info.id if info is not None else None
+        if self._rng_owner == ("set", owner):
+            return
+        self._rng_owner = ("set", owner)
+        if self.seed is None:
+            self.np_rng, self.py_rng = np.random.default_rng(), random.Random()
+            return
+        entropy = list(self.seed) if isinstance(self.seed, Sequence) else [self.seed]
+        if owner is None and len(entropy) == 1:
+            self.np_rng, self.py_rng = np.random.default_rng(entropy[0]), random.Random(entropy[0])
+            return
+        if owner is not None:
+            entropy.append(1_000_003 + owner)                  # worker w: its own stream
+        self.np_rng = np.random.default_rng(entropy)
+        self.py_rng = random.Random(int(np.random.SeedSequence(entropy + [7]).generate_state(1, np.uint64)[0]))
 
     def __call__(self, features: list[dict]) -> dict[str, torch.Tensor]:
+        self._seed_rngs()
         batch = {k: torch.stack([torch.as_tensor(f[k]) for f in features])
                  for k in ("input_ids", "bbox", "attention_mask", "pixel_values")}
         input_ids = batch["input_ids"].clone()
