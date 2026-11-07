@@ -127,8 +127,18 @@ def read_registry(registry: Path | str | None = None) -> list[dict]:
     return [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
 
 
+def wandb_project() -> str | None:
+    """W&B project to log live runs to, from ``LAYOUTLMV3_WANDB_PROJECT`` (unset: no W&B)."""
+    return os.environ.get("LAYOUTLMV3_WANDB_PROJECT") or None
+
+
 class RunTracker:
-    """Context manager that records one run. ``config``, ``metrics``, ``outputs`` and ``tags`` are mutable."""
+    """Context manager that records one run. ``config``, ``metrics``, ``outputs`` and ``tags`` are mutable.
+
+    If ``LAYOUTLMV3_WANDB_PROJECT`` is set (and ``wandb`` is installed and logged in), the run is also logged live to
+    Weights & Biases: ``log()`` sends metrics as they are produced, the final metrics go to the W&B summary, and the
+    run's W&B URL is stored in the registry record (``outputs.wandb_url``). ``LAYOUTLMV3_WANDB_ENTITY`` picks the team.
+    """
 
     def __init__(self, kind: str, args=None, output_dir: str | Path | None = None, tags=(),
                  registry: str | Path | None = None, argv: list[str] | None = None):
@@ -143,11 +153,29 @@ class RunTracker:
         self.run_id = f"{dt.datetime.now(dt.timezone.utc):%Y%m%dT%H%M%SZ}-{kind}-{uuid.uuid4().hex[:6]}"
         self.start = None
         self.record: dict | None = None
+        self.wandb_run = None
 
     def __enter__(self):
         self.start = utc_now()
         self._git, self._env = git_info(), environment()
+        project = wandb_project()
+        if project:
+            import wandb  # optional dependency; only needed when W&B logging is requested
+
+            self.wandb_run = wandb.init(
+                project=project, entity=os.environ.get("LAYOUTLMV3_WANDB_ENTITY") or None, name=self.run_id,
+                job_type=self.kind, tags=[str(t) for t in self.tags], config=to_jsonable(self.args),
+                notes=" ".join([Path(sys.executable).name, *self.argv]))
+            self.wandb_run.config.update({"git": self._git, "environment": self._env}, allow_val_change=True)
+            self.outputs["wandb_url"] = self.wandb_run.url
         return self
+
+    def log(self, metrics: dict, step: int | None = None) -> None:
+        """Send numeric metrics to W&B (no-op without W&B); the local logs and registry are written as before."""
+        if self.wandb_run is None:
+            return
+        numeric = {k: v for k, v in metrics.items() if isinstance(v, (int, float)) and not isinstance(v, bool)}
+        self.wandb_run.log(numeric, step=step)
 
     def build_record(self, status: str, error: str | None = None) -> dict:
         outputs = dict(self.outputs)
@@ -162,6 +190,10 @@ class RunTracker:
     def __exit__(self, exc_type, exc, tb):
         failed = exc_type is not None
         error = f"{exc_type.__name__}: {exc}" if failed else None
+        if self.wandb_run is not None:
+            self.wandb_run.config.update({"config": to_jsonable(self.config)}, allow_val_change=True)
+            self.wandb_run.summary.update(to_jsonable(self.metrics))
+            self.wandb_run.finish(exit_code=1 if failed else 0)
         self.record = self.build_record("failed" if failed else "completed", error)
         append_record(self.record, self.registry)
         if self.output_dir is not None:

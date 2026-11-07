@@ -86,3 +86,30 @@ def test_list_runs_reports_the_wpa_head_of_old_and_new_records():
     assert list_runs.wpa_head_of({**base, "config": {"wpa_head": "mlp"}}) == "mlp"
     assert "wpa=mlp " in " ".join(list_runs.row({**base, "config": {"wpa_head": "mlp", "image_tokenizer": "dalle"}}))
     assert "wpa=linear " in " ".join(list_runs.row({**base, "config": None}))
+
+
+def test_run_tracker_logs_to_wandb_when_project_is_set(tmp_path, monkeypatch):
+    # W&B logging is opt-in through LAYOUTLMV3_WANDB_PROJECT; offline mode needs no network or account.
+    pytest = __import__("pytest")
+    pytest.importorskip("wandb")
+    from layoutlmv3_pretraining.tracking import RunTracker, read_registry
+    monkeypatch.setenv("LAYOUTLMV3_WANDB_PROJECT", "layoutlmv3-test")
+    monkeypatch.setenv("WANDB_MODE", "offline")
+    monkeypatch.setenv("WANDB_DIR", str(tmp_path))
+    reg = tmp_path / "registry.jsonl"
+    with RunTracker("unit", {"lr": 1e-5}, tags=["t"], registry=reg, argv=["x"]) as run:
+        assert run.wandb_run is not None
+        run.log({"val/loss": 1.5, "phase": "joint", "best": True}, step=10)
+        run.metrics["final"] = 0.9
+    rec = read_registry(reg)[-1]
+    assert rec["status"] == "completed" and "wandb_url" in rec["outputs"]
+
+
+def test_run_tracker_without_wandb_project_is_unchanged(tmp_path, monkeypatch):
+    from layoutlmv3_pretraining.tracking import RunTracker, read_registry
+    monkeypatch.delenv("LAYOUTLMV3_WANDB_PROJECT", raising=False)
+    reg = tmp_path / "registry.jsonl"
+    with RunTracker("unit", {}, registry=reg, argv=["x"]) as run:
+        run.log({"val/loss": 1.0}, step=1)  # no-op
+        assert run.wandb_run is None
+    assert "wandb_url" not in read_registry(reg)[-1]["outputs"]

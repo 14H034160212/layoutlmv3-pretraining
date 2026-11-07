@@ -322,6 +322,7 @@ def train(a, run):
         log = [{"step": 0, "phase": "head_warmup" if warmup else "joint",
                 **evaluate(model, val_batches, device, img_tok)}]
         print(json.dumps(log[-1]), flush=True)
+        run.log({f"val/{k}": v for k, v in log[-1].items() if k != "step"}, step=0)
     else:
         model.load_state_dict(state["model"])
         step, best, bad_evals, log = state["step"], state["best"], state["bad_evals"], state["log"]
@@ -367,6 +368,7 @@ def train(a, run):
                             "pages_seen": step * a.batch_size * a.grad_accum,
                             "minutes": round((time.time() - t0) / 60, 1)})
                 print(json.dumps(log[-1]), flush=True)
+                run.log({f"val/{k}": v for k, v in log[-1].items() if k != "step"}, step=step)
                 (out_dir / "log.json").write_text(json.dumps(log, indent=1))
                 if step == warmup:
                     save_backbone(model, processor, out_dir / "warmup_backbone")

@@ -208,6 +208,10 @@ def finetune(a, hp, tracker):
         if curve:
             curves[s] = curve
             print(json.dumps({"seed": s, "curve": curve}), flush=True)
+            for point in curve:  # W&B steps must increase, so the fine-tuning step is logged as a metric
+                tracker.log({"seed": s, "finetune_step": point["step"],
+                             **{f"curve/{k}": v for k, v in point.items() if k != "step" and v is not None}})
+        tracker.log({"seed": s, f"{a.task}/f1": f1})
         tracker.metrics.setdefault("per_seed", {})[s] = round(f1s[-1], 4)
         print(json.dumps({"seed": s, "f1": round(f1s[-1], 4)}), flush=True)
     res = {"task": a.task, "model": a.model, "protocol": a.protocol, **hp, "seeds": a.seeds, "f1": [round(f, 4) for f in f1s],

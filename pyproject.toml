@@ -10,6 +10,7 @@ dependencies = ["torch>=2.1", "transformers>=4.46,<5", "datasets>=2.20", "numpy"
 
 [project.optional-dependencies]
 dev = ["pytest", "seqeval", "accelerate"]
+wandb = ["wandb>=0.19"]
 
 [build-system]
 requires = ["setuptools>=68"]
