@@ -10,8 +10,8 @@ It is an independent re-implementation from the paper, not Microsoft's original 
 
 ![Starting points of continued pre-training and of fine-tuning](results/starting_points.png)
 
-- **Pre-training (top row):** with the encoder frozen and only the new heads trained (grey band), masked-token accuracy reaches **0.511 (base) / 0.576 (large)**. A random encoder reaches **0.056**.
-- **Fine-tuning (bottom row):** the continued checkpoint follows the released checkpoint's curve from the first step. Final F1 is FUNSD 0.901 vs 0.894 and CORD 0.937 vs 0.937. From scratch: 0.400 and 0.792.
+- **Pre-training (top row):** the released checkpoints contain no pre-training heads. Step 0 is the point after a 1,000-step head-only warm-up: the encoder has not changed, but the new heads have learned to read it. From there, the released encoder starts at **0.511 (base) / 0.576 (large)** masked-token accuracy and loss 8.4 / 7.8. A randomly initialised encoder starts at **0.056** and loss 17.0. Before the warm-up, the random heads make every encoder score about 0, so that point says nothing about the encoder.
+- **Fine-tuning (bottom row):** the continued checkpoint follows the released checkpoint's curve from the first step. Final F1 is FUNSD 0.901 vs 0.894 and CORD 0.937 vs 0.937. From scratch: 0.400 and 0.792. At fine-tuning step 0 every model has a new random classifier, so all start near 0 F1; what matters is that the continued and released curves overlap.
 
 The numbers behind the figure are in [Starting points at a glance](#starting-points-at-a-glance). The figure is drawn by `scripts/plot_starting_points.py`.
 
