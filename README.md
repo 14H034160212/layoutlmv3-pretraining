@@ -98,6 +98,48 @@ These are small-scale experiments, not a reproduction of the paper: the corpus i
 
 **WPA head.** Every run in the sections below up to and including the recipe screen and the large warm-up run used a **linear** WPA head, which was the default then (the screen's variant B and the `mlp` probes are the exceptions). The default is now the paper's two-layer MLP on the text token (`--wpa_head mlp`). The screen found the two heads equivalent downstream: B (MLP) minus A (linear) was −0.26 F1 points, within the 0.6-point noise threshold. Each run's head is recorded in the run registry (`wpa=` column of `scripts/list_runs.py`). The run scripts now default to `WPA=mlp`, so pass `WPA=linear` to reproduce the earlier runs exactly.
 
+### Starting points at a glance
+
+Is continued pre-training really building on the released checkpoints rather than starting from scratch? The quickest check is the starting points, both of pre-training and of fine-tuning afterwards. The sections below give the details.
+
+**1. Pre-training starting point** (validation: 512 held-out IDL pages, fixed masks). Step 0 measures the randomly initialised pre-training heads, which the released checkpoints don't include. After 1,000 head-only steps with the encoder frozen and unchanged, the numbers measure what the released encoder already knows.
+
+| run | loss, step 0 | after head warm-up: loss / MLM acc / MIM acc | best joint step: loss / MLM acc / MIM acc |
+|---|---:|---:|---:|
+| base, released encoder, 42k pages | 24.78 | 8.57 / **0.511** / 0.122 | 6.77 / 0.534 / 0.214 |
+| base, released encoder, 402k pages (scale-v2) | 25.42 | 8.38 / **0.511** / 0.123 | 6.21 / 0.549 / 0.260 |
+| large, released encoder, 42k pages | 24.94 | 8.00 / **0.574** / 0.129 | 6.41 / 0.596 / 0.209 |
+| large, released encoder, 402k pages (scale-v2) | 25.43 | 7.77 / **0.576** / 0.138 | 5.70 / 0.613 / 0.269 |
+| base, **random** encoder, same 42k recipe | 20.83 | 16.99 / 0.056 / 0.039 | 12.37 / 0.083 / 0.096 |
+
+**2. Fine-tuning starting point** (base, seeds 1-3, mean test entity F1 / test loss during fine-tuning, `results/curves_v1/`). At step 0 the token classifier is new and random for every model, so all start at the same test loss.
+
+FUNSD:
+
+| initialisation | step 0 | step 50 | step 100 | step 150 | step 200 | step 400 | step 1000 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| `microsoft/layoutlmv3-base` | 0.05 / 1.99 | 0.06 / 1.67 | 0.64 / 0.96 | 0.81 / 0.69 | 0.82 / 0.56 | 0.87 / 0.50 | 0.89 / 0.55 |
+| + 42k pages (head warm-up) | 0.05 / 1.97 | 0.07 / 1.66 | 0.53 / 1.13 | 0.77 / 0.71 | 0.82 / 0.57 | 0.87 / 0.52 | 0.90 / 0.55 |
+| + 404k pages, scale-v1 | 0.05 / 1.99 | 0.05 / 1.69 | 0.49 / 1.16 | 0.79 / 0.68 | 0.83 / 0.56 | 0.86 / 0.49 | 0.90 / 0.52 |
+| + 402k pages, scale-v2 (fixed) | 0.05 / 1.99 | 0.05 / 1.67 | 0.54 / 1.09 | 0.78 / 0.69 | 0.83 / 0.55 | 0.88 / 0.49 | 0.90 / 0.55 |
+| random init + 42k pages | 0.05 / 2.11 | 0.22 / 1.51 | 0.28 / 1.32 | 0.30 / 1.24 | 0.33 / 1.17 | 0.37 / 1.12 | 0.40 / 1.15 |
+
+CORD:
+
+| initialisation | step 0 | step 50 | step 100 | step 150 | step 200 | step 400 | step 1000 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| `microsoft/layoutlmv3-base` | 0.00 / 4.07 | 0.44 / 2.63 | 0.55 / 1.54 | 0.70 / 1.09 | 0.78 / 0.82 | 0.86 / 0.44 | 0.94 / 0.23 |
+| + 42k pages (head warm-up) | 0.00 / 4.08 | 0.43 / 2.66 | 0.55 / 1.53 | 0.70 / 1.08 | 0.79 / 0.82 | 0.87 / 0.43 | 0.93 / 0.23 |
+| + 404k pages, scale-v1 | 0.00 / 4.07 | 0.43 / 2.67 | 0.56 / 1.55 | 0.73 / 1.04 | 0.77 / 0.84 | 0.87 / 0.43 | 0.93 / 0.22 |
+| + 402k pages, scale-v2 (fixed) | 0.00 / 4.07 | 0.42 / 2.66 | 0.56 / 1.53 | 0.74 / 1.05 | 0.78 / 0.83 | 0.87 / 0.41 | 0.94 / 0.22 |
+| random init + 42k pages | 0.01 / 4.09 | 0.41 / 2.40 | 0.49 / 1.75 | 0.54 / 1.34 | 0.59 / 1.15 | 0.70 / 0.78 | 0.79 / 0.54 |
+
+**Reading:**
+- **Pre-training.** The frozen released encoder gives a fresh MLM head 0.51 (base) and 0.58 (large) accuracy within 1,000 steps, against 0.06 for a random encoder. Pre-training then improves from there.
+- **Fine-tuning.** Every continued checkpoint follows the released checkpoint's fine-tuning curve on both tasks from the first steps, reaching F1 above 0.8 on FUNSD by step 150-200. The only visible difference is a short lag at FUNSD step 100. The randomly initialised model plateaus far lower, at 0.40 on FUNSD and 0.79 on CORD.
+
+![Fine-tuning curves](results/curves_v1/finetune_curves.png)
+
 ### Continued pre-training on 42k IDL pages with dVAE targets
 
 **Setup.** IDL shards 0-26 (`pixparse/idl-wds`), at most 2 pages per document, giving **42,061 training pages** (1 page removed by the FUNSD-test filter). 512 pages from shard 2999 are held out, with fixed masks, to pick the checkpoint. MIM targets: DALL-E dVAE, 8,192 tokens. bf16 autocast, AdamW (weight decay 0.01), cosine schedule with 5% warm-up, gradient clipping 1.0, 12 DataLoader workers, one A100 80GB per model.

@@ -7,8 +7,9 @@ import matplotlib.pyplot as plt
 
 RES = Path(sys.argv[1] if len(sys.argv) > 1 else "results/curves_v1")
 NAMES = {"original": "microsoft/layoutlmv3-base", "warmup_42k": "+ 42k pages (head warm-up)",
-         "scaled_404k": "+ 404k pages (head warm-up)", "random_init_42k": "random init + 42k pages"}
-STYLE = {"original": ("k", "-"), "warmup_42k": ("tab:blue", "--"), "scaled_404k": ("tab:orange", "-"),
+         "scaled_404k": "+ 404k pages, scale-v1", "scaled_404k_v2": "+ 402k pages, scale-v2 (fixed)",
+         "random_init_42k": "random init + 42k pages"}
+STYLE = {"original": ("k", "-"), "warmup_42k": ("tab:blue", "--"), "scaled_404k": ("tab:orange", "-"), "scaled_404k_v2": ("tab:green", "-"),
          "random_init_42k": ("tab:red", ":")}
 fig, axes = plt.subplots(2, 2, figsize=(11, 7.5), sharex=True)
 for col, task in enumerate(("funsd", "cord")):
