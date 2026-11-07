@@ -6,6 +6,17 @@ This repository is a small, tested implementation of the three objectives on top
 
 It is an independent re-implementation from the paper, not Microsoft's original code.
 
+## Key check: continued pre-training starts from the released checkpoint
+
+![Starting points of continued pre-training and of fine-tuning](results/starting_points.png)
+
+The main evidence that this implementation does continued pre-training correctly is where training starts. Building correctly on the released weights gives a strong start; mismatched inputs or damaged weights would give a curve close to training from scratch.
+
+- **Pre-training (top row).** The released checkpoints contain no pre-training heads, so the heads are trained first while the encoder stays frozen (grey band). After 1,000 head-only steps the frozen released encoder predicts masked tokens with **0.511 (base) / 0.576 (large)** accuracy, against **0.056** for a randomly initialised encoder trained with the same recipe. Validation loss starts low (about 8) and keeps falling; the random encoder stays above 12.
+- **Fine-tuning (bottom row).** After continued pre-training, the FUNSD and CORD fine-tuning curves follow the released checkpoint's curves from the first steps and end at the same level: FUNSD 0.901 vs 0.894, CORD 0.937 vs 0.937, mean of 3 seeds. A model pre-trained from scratch with the same data plateaus at 0.400 and 0.792.
+
+Exact numbers for every run are in [Starting points at a glance](#starting-points-at-a-glance). The figure is made by `scripts/plot_starting_points.py`.
+
 ## What is implemented
 
 | Objective | Paper | Here |
