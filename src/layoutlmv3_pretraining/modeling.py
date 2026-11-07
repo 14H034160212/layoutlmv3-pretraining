@@ -185,8 +185,8 @@ class LayoutLMv3ForPreTraining(LayoutLMv3PreTrainedModel):
         missing, unexpected = model.layoutlmv3.load_state_dict(state, strict=False)
         assert set(missing) <= {"image_mask_token"} and not unexpected, (missing, unexpected)
         model.mlm_head.decoder.weight = model.layoutlmv3.embeddings.word_embeddings.weight
-        model.loading_info = {"random_init": False, "checkpoint_missing_keys": info["missing_keys"],
-                              "checkpoint_unexpected_keys": info["unexpected_keys"],
+        model.loading_info = {"random_init": False, "checkpoint_missing_keys": sorted(info["missing_keys"]),
+                              "checkpoint_unexpected_keys": sorted(info["unexpected_keys"]),
                               "encoder_keys_loaded": len(backbone.state_dict()),
                               "encoder_keys_not_in_checkpoint": sorted(missing),
                               "image_mask_token_from_checkpoint": own_token}

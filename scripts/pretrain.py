@@ -245,9 +245,10 @@ def train(a, run):
     # the masks of the remaining batches are drawn from a new stream seeded with (seed, step).
     a.data_seed, a.resume_batches, mask_seed = a.seed, 0, a.seed
     if state is not None:
-        if state.get("batch_size", a.batch_size) != a.batch_size or state.get("num_workers", a.num_workers) != a.num_workers:
-            raise SystemExit("--resume needs the --batch_size and --num_workers of the interrupted run "
-                             f"({state.get('batch_size')}, {state.get('num_workers')})")
+        # The batches to skip are step * grad_accum, so all three must match the interrupted run.
+        same = {k: state.get(k, getattr(a, k)) for k in ("batch_size", "grad_accum", "num_workers")}
+        if same != {k: getattr(a, k) for k in same}:
+            raise SystemExit(f"--resume needs the settings of the interrupted run: {same}")
         a.resume_batches = state["step"] * a.grad_accum
         mask_seed = (a.seed, state["step"])
         print(f"resuming from step {state['step']}: skipping {a.resume_batches} batches of the page stream", flush=True)
@@ -386,7 +387,7 @@ def train(a, run):
                 save_train_state(state_path, model=model.state_dict(), optimizer=opt.state_dict(),
                                  scheduler=sched.state_dict(), step=step, best=best, bad_evals=bad_evals, log=log,
                                  minutes=round((time.time() - t0) / 60, 2), batch_size=a.batch_size,
-                                 num_workers=a.num_workers,
+                                 grad_accum=a.grad_accum, num_workers=a.num_workers,
                                  resumed_from_steps=run.metrics.get("resumed_from_steps", []))
             if step >= total_steps:
                 done = True
