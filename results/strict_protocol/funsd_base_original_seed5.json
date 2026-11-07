@@ -1,0 +1,17 @@
+{
+ "task": "funsd",
+ "model": "microsoft/layoutlmv3-base",
+ "protocol": "strict",
+ "steps": 1000,
+ "lr": 1e-05,
+ "batch_size": 2,
+ "seeds": [
+  5
+ ],
+ "f1": [
+  0.8971
+ ],
+ "mean": 0.8971,
+ "std": 0.0,
+ "minutes": 4.0
+}

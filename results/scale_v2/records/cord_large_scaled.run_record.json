@@ -1,0 +1,154 @@
+{
+ "run_id": "20261106T235713Z-finetune_cord-697abc",
+ "kind": "finetune_cord",
+ "status": "completed",
+ "backfilled": false,
+ "tags": [
+  "scale-v2",
+  "large"
+ ],
+ "start_utc": "2026-11-06T23:57:13+00:00",
+ "end_utc": "2026-11-07T02:10:42+00:00",
+ "git": {
+  "commit": "4dbda763c0a04e5a48d05d53d253fb20eb836ade",
+  "dirty": true,
+  "diff_sha256": "32699e72ee5a037b7a257dcb7328b3e1a8bba18f85652219f70a79c416065998",
+  "untracked": [
+   "results/curves_v1/cord_base_scaled_404k_v2.json",
+   "results/curves_v1/funsd_base_scaled_404k_v2.json",
+   "results/curves_v1/records/cord_base_scaled_404k_v2.run_record.json",
+   "results/curves_v1/records/funsd_base_scaled_404k_v2.run_record.json",
+   "results/paper_protocol/",
+   "results/scale_v2/cord_base_scaled.json",
+   "results/scale_v2/drift_base.json",
+   "results/scale_v2/drift_large.json",
+   "results/scale_v2/funsd_base_scaled.json",
+   "results/scale_v2/funsd_large_scaled.json",
+   "results/scale_v2/pretrain_base_log.json",
+   "results/scale_v2/pretrain_base_run_info.json",
+   "results/scale_v2/pretrain_base_run_record.json",
+   "results/scale_v2/pretrain_large_log.json",
+   "results/scale_v2/pretrain_large_run_info.json",
+   "results/scale_v2/pretrain_large_run_record.json",
+   "results/scale_v2/records/",
+   "results/strict_protocol/"
+  ]
+ },
+ "command": "python scripts/finetune_funsd.py --task cord --lr 2e-5 --model runs/scale_v2/large/backbone --seeds 1 2 3 4 5 --eval_at 0 25 50 100 150 200 300 400 600 800 --tags scale-v2 large --out results/scale_v2/cord_large_scaled.json",
+ "argv": [
+  "scripts/finetune_funsd.py",
+  "--task",
+  "cord",
+  "--lr",
+  "2e-5",
+  "--model",
+  "runs/scale_v2/large/backbone",
+  "--seeds",
+  "1",
+  "2",
+  "3",
+  "4",
+  "5",
+  "--eval_at",
+  "0",
+  "25",
+  "50",
+  "100",
+  "150",
+  "200",
+  "300",
+  "400",
+  "600",
+  "800",
+  "--tags",
+  "scale-v2",
+  "large",
+  "--out",
+  "results/scale_v2/cord_large_scaled.json"
+ ],
+ "cwd": "/data/qbao775/layoutlmv3-pretraining",
+ "args": {
+  "model": "runs/scale_v2/large/backbone",
+  "task": "cord",
+  "seeds": [
+   1,
+   2,
+   3,
+   4,
+   5
+  ],
+  "steps": null,
+  "lr": 2e-05,
+  "batch_size": null,
+  "out": "results/scale_v2/cord_large_scaled.json",
+  "protocol": "legacy",
+  "micro_batch": 16,
+  "eval_at": [
+   0,
+   25,
+   50,
+   100,
+   150,
+   200,
+   300,
+   400,
+   600,
+   800
+  ],
+  "tags": [
+   "scale-v2",
+   "large"
+  ]
+ },
+ "config": {
+  "task": "cord",
+  "model": "runs/scale_v2/large/backbone",
+  "seeds": [
+   1,
+   2,
+   3,
+   4,
+   5
+  ],
+  "protocol": "legacy",
+  "micro_batch": 16,
+  "steps": 1000,
+  "lr": 2e-05,
+  "batch_size": 4,
+  "dataset": "naver-clova-ix/cord-v2"
+ },
+ "environment": {
+  "python": "3.11.7",
+  "hostname": "hgx2.novalocal",
+  "cuda_visible_devices": "3",
+  "torch": "2.6.0+cu124",
+  "cuda": "12.4",
+  "gpu": [
+   "NVIDIA A100-SXM4-80GB"
+  ],
+  "transformers": "4.57.6"
+ },
+ "outputs": {
+  "results": "/data/qbao775/layoutlmv3-pretraining/results/scale_v2/cord_large_scaled.json"
+ },
+ "metrics": {
+  "per_seed": {
+   "1": 0.9509,
+   "2": 0.9536,
+   "3": 0.9615,
+   "4": 0.9526,
+   "5": 0.9608
+  },
+  "f1": [
+   0.9509,
+   0.9536,
+   0.9615,
+   0.9526,
+   0.9608
+  ],
+  "mean": 0.9559,
+  "std": 0.0049,
+  "minutes": 133.5
+ },
+ "error": null
+}

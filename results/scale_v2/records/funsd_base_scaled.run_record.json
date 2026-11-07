@@ -1,0 +1,134 @@
+{
+ "run_id": "20261106T165535Z-finetune_funsd-f60d5a",
+ "kind": "finetune_funsd",
+ "status": "completed",
+ "backfilled": false,
+ "tags": [
+  "scale-v2",
+  "base"
+ ],
+ "start_utc": "2026-11-06T16:55:35+00:00",
+ "end_utc": "2026-11-06T17:06:39+00:00",
+ "git": {
+  "commit": "e1ec1d6df665812a77c9cad48a7146c8e435b084",
+  "dirty": true,
+  "diff_sha256": "bde797bb3c00e89d55a2387d18ead3632bd6e0ba372adaeac03aff8e76973a53",
+  "untracked": [
+   "results/scale_v2/drift_base.json",
+   "results/scale_v2/pretrain_base_log.json",
+   "results/scale_v2/pretrain_base_run_info.json",
+   "results/scale_v2/pretrain_base_run_record.json"
+  ]
+ },
+ "command": "python scripts/finetune_funsd.py --task funsd --model runs/scale_v2/base/backbone --seeds 1 2 3 4 5 --eval_at 0 25 50 100 150 200 300 400 600 800 --tags scale-v2 base --out results/scale_v2/funsd_base_scaled.json",
+ "argv": [
+  "scripts/finetune_funsd.py",
+  "--task",
+  "funsd",
+  "--model",
+  "runs/scale_v2/base/backbone",
+  "--seeds",
+  "1",
+  "2",
+  "3",
+  "4",
+  "5",
+  "--eval_at",
+  "0",
+  "25",
+  "50",
+  "100",
+  "150",
+  "200",
+  "300",
+  "400",
+  "600",
+  "800",
+  "--tags",
+  "scale-v2",
+  "base",
+  "--out",
+  "results/scale_v2/funsd_base_scaled.json"
+ ],
+ "cwd": "/data/qbao775/layoutlmv3-pretraining",
+ "args": {
+  "model": "runs/scale_v2/base/backbone",
+  "task": "funsd",
+  "seeds": [
+   1,
+   2,
+   3,
+   4,
+   5
+  ],
+  "steps": null,
+  "lr": null,
+  "batch_size": null,
+  "out": "results/scale_v2/funsd_base_scaled.json",
+  "eval_at": [
+   0,
+   25,
+   50,
+   100,
+   150,
+   200,
+   300,
+   400,
+   600,
+   800
+  ],
+  "tags": [
+   "scale-v2",
+   "base"
+  ]
+ },
+ "config": {
+  "task": "funsd",
+  "model": "runs/scale_v2/base/backbone",
+  "seeds": [
+   1,
+   2,
+   3,
+   4,
+   5
+  ],
+  "steps": 1000,
+  "lr": 1e-05,
+  "batch_size": 2,
+  "dataset": "nielsr/funsd-layoutlmv3"
+ },
+ "environment": {
+  "python": "3.11.7",
+  "hostname": "hgx2.novalocal",
+  "cuda_visible_devices": "4",
+  "torch": "2.6.0+cu124",
+  "cuda": "12.4",
+  "gpu": [
+   "NVIDIA A100-SXM4-80GB"
+  ],
+  "transformers": "4.57.6"
+ },
+ "outputs": {
+  "results": "/data/qbao775/layoutlmv3-pretraining/results/scale_v2/funsd_base_scaled.json"
+ },
+ "metrics": {
+  "per_seed": {
+   "1": 0.8928,
+   "2": 0.914,
+   "3": 0.8974,
+   "4": 0.8942,
+   "5": 0.9013
+  },
+  "f1": [
+   0.8928,
+   0.914,
+   0.8974,
+   0.8942,
+   0.9013
+  ],
+  "mean": 0.9,
+  "std": 0.0085,
+  "minutes": 11.1
+ },
+ "error": null
+}

@@ -1,0 +1,17 @@
+{
+ "task": "cord",
+ "model": "runs/scale_v1/base/backbone",
+ "protocol": "strict",
+ "steps": 1000,
+ "lr": 5e-05,
+ "batch_size": 4,
+ "seeds": [
+  10
+ ],
+ "f1": [
+  0.9397
+ ],
+ "mean": 0.9397,
+ "std": 0.0,
+ "minutes": 10.2
+}

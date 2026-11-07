@@ -1,0 +1,114 @@
+{
+ "run_id": "20261106T235053Z-finetune_cord-51de74",
+ "kind": "finetune_cord",
+ "status": "completed",
+ "backfilled": false,
+ "tags": [
+  "strict-protocol",
+  "base",
+  "original"
+ ],
+ "start_utc": "2026-11-06T23:50:53+00:00",
+ "end_utc": "2026-11-06T23:54:42+00:00",
+ "git": {
+  "commit": "4dbda763c0a04e5a48d05d53d253fb20eb836ade",
+  "dirty": true,
+  "diff_sha256": "a0c5311625f022d4fa994ed0c09dc8f50a2ab7a2fe28b3d4b89c6c17094512d9",
+  "untracked": [
+   "results/curves_v1/cord_base_scaled_404k_v2.json",
+   "results/curves_v1/funsd_base_scaled_404k_v2.json",
+   "results/curves_v1/records/cord_base_scaled_404k_v2.run_record.json",
+   "results/curves_v1/records/funsd_base_scaled_404k_v2.run_record.json",
+   "results/paper_protocol/",
+   "results/scale_v2/cord_base_scaled.json",
+   "results/scale_v2/drift_base.json",
+   "results/scale_v2/drift_large.json",
+   "results/scale_v2/funsd_base_scaled.json",
+   "results/scale_v2/pretrain_base_log.json",
+   "results/scale_v2/pretrain_base_run_info.json",
+   "results/scale_v2/pretrain_base_run_record.json",
+   "results/scale_v2/pretrain_large_log.json",
+   "results/scale_v2/pretrain_large_run_info.json",
+   "results/scale_v2/pretrain_large_run_record.json",
+   "results/scale_v2/records/",
+   "results/strict_protocol/"
+  ]
+ },
+ "command": "python scripts/finetune_funsd.py --task cord --protocol strict --model microsoft/layoutlmv3-base --seeds 3 --tags strict-protocol base original --out results/strict_protocol/cord_base_original_seed3.json",
+ "argv": [
+  "scripts/finetune_funsd.py",
+  "--task",
+  "cord",
+  "--protocol",
+  "strict",
+  "--model",
+  "microsoft/layoutlmv3-base",
+  "--seeds",
+  "3",
+  "--tags",
+  "strict-protocol",
+  "base",
+  "original",
+  "--out",
+  "results/strict_protocol/cord_base_original_seed3.json"
+ ],
+ "cwd": "/data/qbao775/layoutlmv3-pretraining",
+ "args": {
+  "model": "microsoft/layoutlmv3-base",
+  "task": "cord",
+  "seeds": [
+   3
+  ],
+  "steps": null,
+  "lr": null,
+  "batch_size": null,
+  "out": "results/strict_protocol/cord_base_original_seed3.json",
+  "protocol": "strict",
+  "micro_batch": 16,
+  "eval_at": [],
+  "tags": [
+   "strict-protocol",
+   "base",
+   "original"
+  ]
+ },
+ "config": {
+  "task": "cord",
+  "model": "microsoft/layoutlmv3-base",
+  "seeds": [
+   3
+  ],
+  "protocol": "strict",
+  "micro_batch": 16,
+  "steps": 1000,
+  "lr": 5e-05,
+  "batch_size": 4,
+  "dataset": "naver-clova-ix/cord-v2"
+ },
+ "environment": {
+  "python": "3.11.7",
+  "hostname": "hgx2.novalocal",
+  "cuda_visible_devices": "4",
+  "torch": "2.6.0+cu124",
+  "cuda": "12.4",
+  "gpu": [
+   "NVIDIA A100-SXM4-80GB"
+  ],
+  "transformers": "4.57.6"
+ },
+ "outputs": {
+  "results": "/data/qbao775/layoutlmv3-pretraining/results/strict_protocol/cord_base_original_seed3.json"
+ },
+ "metrics": {
+  "per_seed": {
+   "3": 0.933
+  },
+  "f1": [
+   0.933
+  ],
+  "mean": 0.933,
+  "std": 0.0,
+  "minutes": 3.8
+ },
+ "error": null
+}

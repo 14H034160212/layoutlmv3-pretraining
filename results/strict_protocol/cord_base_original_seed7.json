@@ -1,0 +1,17 @@
+{
+ "task": "cord",
+ "model": "microsoft/layoutlmv3-base",
+ "protocol": "strict",
+ "steps": 1000,
+ "lr": 5e-05,
+ "batch_size": 4,
+ "seeds": [
+  7
+ ],
+ "f1": [
+  0.9414
+ ],
+ "mean": 0.9414,
+ "std": 0.0,
+ "minutes": 7.1
+}

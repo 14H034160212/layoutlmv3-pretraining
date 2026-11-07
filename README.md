@@ -340,7 +340,50 @@ CORD shows the same picture. Step 1000: 0.94 / 0.23 (original), 0.93 / 0.23 (42k
 - **Small early lag.** On FUNSD, the continued checkpoints are slightly behind at step 100 (F1 0.49-0.53 against 0.64). They catch up by step 150-200. We did not see this on CORD.
 - **What this shows.** Continued pre-training keeps the released model's starting point and does not damage it. It does not show that continued pre-training improves on it.
 
-**Large** is still running and will be added here.
+#### scale-v2: the same experiment with the fixed pipeline
+
+An independent code review found three data-pipeline bugs in scale-v1. All three are fixed, each with a regression test (see [The IDL corpus](#the-idl-corpus) and `--resume`):
+- about 10% of pages were trained with the image turned 90° against its OCR boxes;
+- all 12 DataLoader workers drew identical masks;
+- `--resume` replayed the start of the corpus.
+
+The optimiser was also aligned with the paper ([Optimiser](#optimiser)). scale-v2 re-runs scale-v1 with these fixes (`results/scale_v2/plan.md`, pre-registered): 402,284 pages, 1,000 head-only steps and 25,143 joint steps.
+
+| validation (512 pages, fixed pipeline) | after head warm-up | best joint step | encoder drift |
+|---|---:|---:|---:|
+| base: loss / MLM acc / MIM acc | 8.38 / 0.511 / 0.123 | 6.21 / 0.549 / 0.260 (step 25,000) | 5.8% |
+| large: loss / MLM acc / MIM acc | 7.77 / 0.576 / — | 5.70 / 0.613 / 0.269 (step 25,500) | 2.5% |
+
+The scale-v1 base checkpoint re-evaluated on the same fixed validation pages scores loss 6.21 (`results/scale_v2/scale_v1_base_on_val_fix.json`), so the fixes did not lower the pre-training loss.
+
+**Downstream, 5 seeds, the same recipes as above** (paired against the original checkpoint):
+
+| | FUNSD | CORD |
+|---|---|---|
+| base, scale-v2 | 0.900 (+0.50, p = 0.25) | 0.939 (+0.32, p = 0.28) |
+| large, scale-v2 | 0.907 (+0.49, p = 0.12) | 0.956 (−0.04, p = 0.74) |
+
+Neither meets the pre-registered rule (mean ≥ +0.5 over both tasks, positive on both, p < 0.05). The base learning curves of scale-v2 again follow the released checkpoint's curve from the first steps (`results/curves_v1/*_scaled_404k_v2.json`).
+
+**More seeds, fixed evaluation.** To resolve differences below 0.5 points, the three base checkpoints were fine-tuned again with seeds 1-10 under `--protocol strict` (`results/strict_protocol/`). This uses the same recipes, but labels only the first sub-token of each word (transformers 4.x labels some words twice), and words cut off by the 512-token limit are scored as missed. Absolute F1 is therefore slightly lower than above.
+
+| base, seeds 1-10, F1 × 100 | FUNSD | CORD |
+|---|---:|---:|
+| `microsoft/layoutlmv3-base` | 88.60 ± 0.73 | 93.73 ± 0.55 |
+| scale-v1 (404k pages, before the fixes) | 89.11 ± 0.56 | 93.74 ± 0.33 |
+| scale-v2 (402k pages, fixed) | 89.25 ± 0.35 | 93.85 ± 0.61 |
+
+Paired differences against the original:
+- scale-v2: FUNSD +0.65 (p = 0.047), CORD +0.12 (p = 0.59), pooled over the 20 pairs +0.38 (p = 0.048).
+- scale-v1: FUNSD +0.50 (p = 0.043), CORD +0.01 (p = 0.96), pooled +0.26 (p = 0.085).
+- scale-v2 against scale-v1: +0.13 (p = 0.35).
+
+**Reading.**
+- **FUNSD:** with 10 seeds, continued pre-training on ~400k IDL pages gives a small FUNSD gain, about +0.5 to +0.65 F1. It is nominally significant (p ≈ 0.04-0.05 per test), with no correction for the several comparisons made.
+- **CORD:** no change.
+- **The fixes:** they do not measurably change downstream results (v2 against v1: p = 0.35).
+- **The pre-registered rule:** this 10-seed run was not part of it. Under that rule the pooled gain (+0.38) is still below the +0.5 threshold.
+- **Conclusion:** at most a small, form-specific benefit. That fits the corpus: IDL is mostly forms and letters, like FUNSD, while CORD is receipts.
 
 ### Earlier sanity run: FUNSD train only (k-means targets)
 
