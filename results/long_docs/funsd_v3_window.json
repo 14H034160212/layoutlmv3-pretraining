@@ -1,0 +1,40 @@
+{
+ "task": "funsd",
+ "model": "microsoft/layoutlmv3-base",
+ "family": "layoutlmv3",
+ "extrapolation": false,
+ "extend_positions": false,
+ "max_length": 512,
+ "protocol": "strict",
+ "long_docs": "window",
+ "steps": 1000,
+ "lr": 1e-05,
+ "batch_size": 2,
+ "seeds": [
+  1,
+  2,
+  3,
+  4,
+  5,
+  6,
+  7,
+  8,
+  9,
+  10
+ ],
+ "f1": [
+  0.8995,
+  0.8889,
+  0.8899,
+  0.8908,
+  0.89,
+  0.8918,
+  0.882,
+  0.8932,
+  0.8904,
+  0.9062
+ ],
+ "mean": 0.8923,
+ "std": 0.0065,
+ "minutes": 41.9
+}

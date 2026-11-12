@@ -484,6 +484,21 @@ Before the index-select change, ERNIE-Layout's extrapolation model did not fit 2
 
 `--gradient_checkpointing` (`long_docs.checkpoint_encoder_layers`) recomputes layer activations in the backward pass; transformers' `LayoutLMv3ForTokenClassification` does not support `gradient_checkpointing_enable()`, and the ERNIE-Layout port removed it. ERNIE-Layout's floor of about 5.3 GB comes from AdamW state for its 250k-token vocabulary. These are measurements on an A100 under a cap, not on a V100; V100 has no bf16, so fp16 numerics should be confirmed there.
 
+**Accuracy on FUNSD** (`--protocol strict`, seeds 1-10, every word scored; paired t-test against truncation at 512 of the same model; `results/long_docs/funsd_*.json`). 4 of the 50 test documents exceed 512 tokens (longest 954), so truncation can reach at most 99.27 F1 even with perfect predictions; the possible gain from longer inputs is about 0.7 points.
+
+| | F1 x 100 | vs truncation | p | seeds better |
+|---|---:|---:|---:|---:|
+| LayoutLMv3, truncate at 512 | 88.60 ± 0.73 | | | |
+| LayoutLMv3, 512-token windows | 89.23 ± 0.65 | +0.62 | 0.011 | 9/10 |
+| LayoutLMv3, tiled positions, 1024 | 89.32 ± 0.57 | +0.72 | 0.001 | 9/10 |
+| LayoutLMv3, tiled positions, 2048, `--sdpa` | 89.27 ± 0.48 | +0.66 | 0.013 | 9/10 |
+| ERNIE-Layout, truncate at 512 | 84.32 ± 0.66 | | | |
+| ERNIE-Layout, 512-token windows | 85.02 ± 0.49 | +0.70 | 0.001 | 10/10 |
+| ERNIE-Layout, RoPE extrapolation, 1024 | 28.19 ± 2.67 | -56.13 | <0.001 | 0/10 |
+| ERNIE-Layout, RoPE extrapolation, 2048 | 28.71 ± 1.28 | -55.61 | <0.001 | 0/10 |
+
+Windows, and tiled positions at 1024 or 2048, recover nearly all of the 0.7 points that truncation loses; 2048 cannot add more on FUNSD because no document is that long. The port's extrapolation model replaces ERNIE-Layout's pretrained absolute position embeddings with RoPE, which 1,000 fine-tuning steps on FUNSD do not learn: it is not usable this way. ERNIE-Layout's lower F1 overall uses LayoutLMv3's FUNSD recipe (lr 1e-5, 1,000 steps, batch 2), not tuned for it.
+
 ## ERNIE-Layout (experimental)
 
 [ERNIE-Layout](https://arxiv.org/abs/2210.06155) can be fine-tuned, evaluated on long documents and continued-pretrained here through the unofficial PyTorch port [NormXU/ERNIE-Layout-Pytorch](https://github.com/NormXU/ERNIE-Layout-Pytorch) (weights `Norm/ERNIE-Layout-Pytorch`). Clone the port and set `ERNIE_LAYOUT_PYTORCH=<path>`; it also needs `einops` and `sentencepiece`. `src/layoutlmv3_pretraining/ernie_layout.py` makes it work with current transformers and fixes two things:
