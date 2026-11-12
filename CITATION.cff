@@ -1,0 +1,36 @@
+cff-version: 1.2.0
+message: "If you use this code, please cite it as below, and also cite the original LayoutLMv3 paper listed under references."
+type: software
+title: "LayoutLMv3 pre-training objectives (MLM, MIM, WPA) for Hugging Face transformers"
+authors:
+  - family-names: Bao
+    given-names: Qiming
+version: 0.1.0
+date-released: 2026-11-12
+license: MIT
+repository-code: "https://github.com/14H034160212/layoutlmv3-pretraining"
+abstract: "A tested, independent re-implementation of the LayoutLMv3 pre-training objectives (masked language modelling, masked image modelling and word-patch alignment) on top of Hugging Face transformers' LayoutLMv3Model. It is not Microsoft's original code."
+keywords:
+  - LayoutLMv3
+  - document AI
+  - pre-training
+  - transformers
+references:
+  - type: conference-paper
+    title: "LayoutLMv3: Pre-training for Document AI with Unified Text and Image Masking"
+    authors:
+      - family-names: Huang
+        given-names: Yupan
+      - family-names: Lv
+        given-names: Tengchao
+      - family-names: Cui
+        given-names: Lei
+      - family-names: Lu
+        given-names: Yutong
+      - family-names: Wei
+        given-names: Furu
+    collection-title: "Proceedings of the 30th ACM International Conference on Multimedia"
+    year: 2022
+    start: 4083
+    end: 4091
+    doi: "10.1145/3503161.3548112"

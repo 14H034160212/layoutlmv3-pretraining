@@ -487,11 +487,27 @@ Written with the help of an AI coding assistant. The design, tests and experimen
 
 ## Citation
 
+If you use this code, please cite this repository:
+
+```bibtex
+@software{bao2026layoutlmv3pretraining,
+  author  = {Bao, Qiming},
+  title   = {{LayoutLMv3 pre-training objectives (MLM, MIM, WPA) for Hugging Face transformers}},
+  year    = {2026},
+  version = {0.1.0},
+  url     = {https://github.com/14H034160212/layoutlmv3-pretraining}
+}
+```
+
+Please also cite the original LayoutLMv3 paper, which defines the objectives implemented here:
+
 ```bibtex
 @inproceedings{huang2022layoutlmv3,
   title     = {LayoutLMv3: Pre-training for Document AI with Unified Text and Image Masking},
   author    = {Huang, Yupan and Lv, Tengchao and Cui, Lei and Lu, Yutong and Wei, Furu},
   booktitle = {Proceedings of the 30th ACM International Conference on Multimedia},
-  year      = {2022}
+  pages     = {4083--4091},
+  year      = {2022},
+  doi       = {10.1145/3503161.3548112}
 }
 ```
