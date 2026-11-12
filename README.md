@@ -6,6 +6,8 @@ This repository is a small, tested implementation of the three objectives on top
 
 It is an independent re-implementation from the paper, not Microsoft's original code.
 
+A write-up of what continued pre-training did and did not change: [blog post](https://14h034160212.github.io/blog/layoutlmv3-continued-pretraining.html) ([中文](https://14h034160212.github.io/blog/layoutlmv3-continued-pretraining-zh.html)).
+
 ## Key check: continued pre-training starts from the released checkpoint
 
 ![Starting points of continued pre-training and of fine-tuning](results/starting_points.png)
