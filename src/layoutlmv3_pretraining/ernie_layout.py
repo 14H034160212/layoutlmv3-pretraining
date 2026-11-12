@@ -55,6 +55,27 @@ def image_processor():
                                     resample=PILImageResampling.LANCZOS)
 
 
+def keep_batchnorm_frozen(model):
+    """Keep the visual ResNet's BatchNorm layers in eval mode whenever `model.train()` is called. In train mode they
+    update their running statistics on every forward pass, even with all parameters frozen, so a head warm-up would
+    change the encoder and small fine-tuning batches would overwrite the pretrained statistics (detection backbones
+    usually freeze them for the same reason)."""
+    from torch import nn
+
+    bns = [m for m in model.modules() if isinstance(m, nn.modules.batchnorm._BatchNorm)]
+    original_train = model.train
+
+    def train(mode: bool = True):
+        original_train(mode)
+        for bn in bns:
+            bn.eval()
+        return model
+
+    model.train = train
+    model.train(model.training)
+    return model
+
+
 def load(num_labels: int, path: str = DEFAULT_PATH, extrapolation: bool = False, use_sdpa: bool = False):
     """Return (processor, model, tokenizer) for token classification with `num_labels` classes. `use_sdpa` sets the
     port's `use_flash_attn`, which runs attention through torch's scaled_dot_product_attention."""
@@ -82,5 +103,5 @@ def load(num_labels: int, path: str = DEFAULT_PATH, extrapolation: bool = False,
         model_cls = networks.exErnieLayoutForTokenClassification
     else:
         model_cls = networks.ErnieLayoutForTokenClassification
-    model = model_cls.from_pretrained(path, config=config)
+    model = keep_batchnorm_frozen(model_cls.from_pretrained(path, config=config))
     return processor, model, tokenizer

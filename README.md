@@ -462,6 +462,28 @@ Validation losses bottom out around steps 750 (MIM) and 1,250 (MLM) and then ris
 
 So there is **no gain**, which is what you should expect from 129 documents. The base model's score matches the commonly reported ~0.90 for this fine-tuning recipe, which is a useful check that the evaluation is set up correctly. (Seeds 1-3 of the 5-seed base run above reproduce these three scores exactly.)
 
+## ERNIE-Layout (experimental)
+
+[ERNIE-Layout](https://arxiv.org/abs/2210.06155) can be fine-tuned, evaluated on long documents and continued-pretrained here through the unofficial PyTorch port [NormXU/ERNIE-Layout-Pytorch](https://github.com/NormXU/ERNIE-Layout-Pytorch) (weights `Norm/ERNIE-Layout-Pytorch`). Clone the port and set `ERNIE_LAYOUT_PYTORCH=<path>`; it also needs `einops` and `sentencepiece`. `src/layoutlmv3_pretraining/ernie_layout.py` makes it work with current transformers and fixes two things:
+
+- **Image preprocessing.** The visual backbone normalises 0-255 RGB pixels itself, as PaddleNLP feeds them. The port's README normalises to [-1, 1] first, which leaves every page with nearly the same visual features (NormXU/ERNIE-Layout-Pytorch#26). Here images stay in 0-255.
+- **Frozen BatchNorm statistics.** The visual ResNet's BatchNorm layers stay in eval mode during training. Otherwise their running statistics change on every forward pass, even with the encoder frozen.
+
+```bash
+# fine-tuning, truncation vs 512-token windows vs RoPE extrapolation to 1024 tokens
+python scripts/finetune_funsd.py --family ernie-layout --model Norm/ERNIE-Layout-Pytorch --protocol strict --long_docs window
+python scripts/finetune_funsd.py --family ernie-layout --model Norm/ERNIE-Layout-Pytorch --protocol strict --extrapolation --max_length 1024
+
+# continued pre-training with masked visual-language modelling + text-image alignment, after a head warm-up
+python scripts/pretrain_ernie.py --corpus idl --idl_shards 0-26 --exclude_funsd_test --head_warmup_steps 1000 \
+    --max_steps 6000 --lr 2e-5 --batch_size 16 --grad_accum 2 --num_workers 12 --eval_every 500 --val_docs 512 \
+    --output_dir runs/ernie_idl
+```
+
+`pretrain_ernie.py` implements two of the paper's four objectives: masked visual-language modelling (span masking as for MLM, head tied to the word embeddings) and text-image alignment (text segments have their image region covered with probability `--tia_ratio`, and every unmasked token is classified as covered or not). Reading-order prediction and replaced-region prediction are not implemented. The released checkpoint has no pre-training heads, so use `--head_warmup_steps`. No ERNIE-Layout results are reported yet.
+
+**Licence.** The port is MIT. `PaddlePaddle/ernie-layoutx-base-uncased` does not state a licence for the weights on its model card, so check with the PaddleNLP authors before any commercial use.
+
 ## Run registry
 
 Every run of `scripts/pretrain.py`, `scripts/finetune_funsd.py` and `scripts/finetune_dvae.py` appends one JSON line to `experiments/registry.jsonl` (`src/layoutlmv3_pretraining/tracking.py`, no external service). A record holds: run id, kind, tags, UTC start/end, status (`completed` or `failed`, with the error), git commit + dirty flag (+ a SHA-256 of `git diff HEAD` and the untracked files if dirty), the exact command line, all parsed arguments, the resolved config (model, random or pretrained init, WPA head, image tokenizer and its path, corpus shards and page counts, seeds, learning rates, loading report), the environment (Python, torch, transformers, CUDA, GPU name, `CUDA_VISIBLE_DEVICES`), output paths and a metrics summary (pre-training: validation metrics at step 0, after the head warm-up, final and best; fine-tuning: per-seed F1, mean, std). The record is written once at the end, under a file lock, also when the run fails, and a copy goes next to the outputs (`<output_dir>/run_record.json`, or `records/<name>.run_record.json` next to a fine-tuning results file). Set `LAYOUTLMV3_REGISTRY` to write elsewhere.
