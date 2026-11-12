@@ -34,13 +34,13 @@ DEFAULTS = {"funsd": dict(steps=1000, lr=1e-5, batch_size=2), "cord": dict(steps
 PAPER = {"funsd": dict(steps=1000, lr=1e-5, batch_size=16), "cord": dict(steps=1000, lr=5e-5, batch_size=64)}
 
 
-def encode(processor, examples, first_subword_only=False, stride=None):
+def encode(processor, examples, first_subword_only=False, stride=None, max_length=512):
     """Encode examples; with `stride`, a document longer than 512 tokens becomes several overlapping windows
     (`stride` tokens of overlap) instead of being truncated, each with the full page image."""
     images = [im.convert("RGB") for im in examples["image"]]
     windows = dict(stride=stride, return_overflowing_tokens=True) if stride is not None else {}
     enc = processor(images, examples["tokens"], boxes=examples["bboxes"], word_labels=examples["ner_tags"],
-                    truncation=True, padding="max_length", max_length=512, **windows)
+                    truncation=True, padding="max_length", max_length=max_length, **windows)
     if first_subword_only:  # the tokenizer's own rule misses some words (e.g. "\u2610"/"\u2611" split in 2 tokens)
         counts = None
         if stride is not None:  # sub-tokens per word in the whole document, to find windows that start inside a word
@@ -87,11 +87,11 @@ def window_first_subwords(word_ids, counts):
     return first
 
 
-def truncated_tags(processor, split, names):
-    """Gold tags of the words that the 512-token limit cuts off, per example (scored as missed in --protocol paper)."""
+def truncated_tags(processor, split, names, max_length=512):
+    """Gold tags of the words that the token limit cuts off, per example (scored as missed in --protocol paper)."""
     tails = []
     for ex in split:
-        enc = processor.tokenizer(ex["tokens"], boxes=ex["bboxes"], truncation=True, max_length=512)
+        enc = processor.tokenizer(ex["tokens"], boxes=ex["bboxes"], truncation=True, max_length=max_length)
         kept = max(w for w in enc.word_ids() if w is not None) + 1
         tails.append([names[t] for t in ex["ner_tags"][kept:]])
     return tails
@@ -198,15 +198,22 @@ def evaluate_windows(model, windows, gold, labels, device):
     return f1_score(y_true, y_pred), float(np.mean(losses))
 
 
-def run(ds, model_path, seed, steps, lr, batch_size, device, eval_at=(), paper=False, micro_batch=16, stride=None):
+def run(ds, model_path, seed, steps, lr, batch_size, device, eval_at=(), paper=False, micro_batch=16, stride=None,
+        family="layoutlmv3", extrapolation=False, max_length=512):
     torch.manual_seed(seed); np.random.seed(seed)
     labels = ds["train"].features["ner_tags"].feature.names
-    processor = LayoutLMv3Processor.from_pretrained("microsoft/layoutlmv3-base", apply_ocr=False)
+    if family == "ernie-layout":
+        from layoutlmv3_pretraining import ernie_layout
+        processor, model, _ = ernie_layout.load(len(labels), model_path, extrapolation=extrapolation)
+    else:
+        processor = LayoutLMv3Processor.from_pretrained("microsoft/layoutlmv3-base", apply_ocr=False)
     cols = ds["train"].column_names
     if stride is None:
-        train = ds["train"].map(lambda e: encode(processor, e, paper), batched=True, remove_columns=cols)
-        test = ds["test"].map(lambda e: encode(processor, e, paper), batched=True, remove_columns=cols)
-        tails = truncated_tags(processor, ds["test"], labels) if paper else None
+        train = ds["train"].map(lambda e: encode(processor, e, paper, max_length=max_length), batched=True,
+                                remove_columns=cols)
+        test = ds["test"].map(lambda e: encode(processor, e, paper, max_length=max_length), batched=True,
+                              remove_columns=cols)
+        tails = truncated_tags(processor, ds["test"], labels, max_length) if paper else None
         score = lambda m: evaluate(m, test, labels, device, tails)  # noqa: E731
     else:  # --long_docs window: long documents become overlapping windows in training and evaluation
         train = ds["train"].map(lambda e, i: add_window_index(processor, e, i, paper, stride), batched=True,
@@ -216,9 +223,11 @@ def run(ds, model_path, seed, steps, lr, batch_size, device, eval_at=(), paper=F
         gold = ds["test"]["ner_tags"]
         score = lambda m: evaluate_windows(m, test, gold, labels, device)  # noqa: E731
     train.set_format("torch"); test.set_format("torch")
-    model = LayoutLMv3ForTokenClassification.from_pretrained(
-        model_path, num_labels=len(labels), id2label=dict(enumerate(labels)),
-        label2id={l: i for i, l in enumerate(labels)}).to(device)
+    if family != "ernie-layout":
+        model = LayoutLMv3ForTokenClassification.from_pretrained(
+            model_path, num_labels=len(labels), id2label=dict(enumerate(labels)),
+            label2id={l: i for i, l in enumerate(labels)})
+    model = model.to(device)
     g = torch.Generator().manual_seed(seed)
     accum = max(1, batch_size // micro_batch) if paper else 1
     assert batch_size % accum == 0
@@ -274,8 +283,21 @@ def main():
                          "overlapping 512-token windows for training and evaluation and score every word "
                          "(needs --protocol strict or paper)")
     ap.add_argument("--window_stride", type=int, default=128, help="--long_docs window: tokens of overlap")
+    ap.add_argument("--family", choices=["layoutlmv3", "ernie-layout"], default="layoutlmv3",
+                    help="ernie-layout: --model Norm/ERNIE-Layout-Pytorch through the unofficial PyTorch port "
+                         "(src/layoutlmv3_pretraining/ernie_layout.py; needs the port on PYTHONPATH or ERNIE_LAYOUT_PYTORCH)")
+    ap.add_argument("--extrapolation", action="store_true",
+                    help="--family ernie-layout: the port's RoPE extrapolation model (set_config_for_extrapolation)")
+    ap.add_argument("--max_length", type=int, default=512,
+                    help="tokens per sequence; above 512 only with --extrapolation (the other models have 512 positions)")
     ap.add_argument("--tags", nargs="*", default=[], help="free-form tags for experiments/registry.jsonl")
     a = ap.parse_args()
+    if a.max_length > 512 and not a.extrapolation:
+        ap.error("--max_length above 512 needs --extrapolation")
+    if a.max_length != 512 and a.long_docs == "window":
+        ap.error("--long_docs window uses 512-token windows")
+    if a.extrapolation and a.family != "ernie-layout":
+        ap.error("--extrapolation needs --family ernie-layout")
     if a.long_docs == "window" and a.protocol == "legacy":
         ap.error("--long_docs window needs --protocol strict or paper (one label per word)")
     base_hp = PAPER if a.protocol == "paper" else DEFAULTS
@@ -283,7 +305,8 @@ def main():
     out_dir = os.path.dirname(os.path.abspath(a.out)) if a.out else None
     with RunTracker(f"finetune_{a.task}", a, tags=a.tags) as tracker:
         tracker.config.update(task=a.task, model=a.model, seeds=a.seeds, protocol=a.protocol, micro_batch=a.micro_batch,
-                              long_docs=a.long_docs, window_stride=a.window_stride if a.long_docs == "window" else None, **hp,
+                              long_docs=a.long_docs, window_stride=a.window_stride if a.long_docs == "window" else None,
+                              family=a.family, extrapolation=a.extrapolation, max_length=a.max_length, **hp,
                               dataset="nielsr/funsd-layoutlmv3" if a.task == "funsd" else "naver-clova-ix/cord-v2")
         tracker.outputs["results"] = os.path.abspath(a.out) if a.out else None
         res = finetune(a, hp, tracker)
@@ -300,7 +323,8 @@ def finetune(a, hp, tracker):
     f1s, curves = [], {}
     for s in a.seeds:
         f1, curve = run(ds, a.model, s, device=device, eval_at=set(a.eval_at), paper=a.protocol != "legacy",
-                        micro_batch=a.micro_batch, stride=a.window_stride if a.long_docs == "window" else None, **hp)
+                        micro_batch=a.micro_batch, stride=a.window_stride if a.long_docs == "window" else None,
+                        family=a.family, extrapolation=a.extrapolation, max_length=a.max_length, **hp)
         f1s.append(f1)
         if curve:
             curves[s] = curve
@@ -311,7 +335,8 @@ def finetune(a, hp, tracker):
         tracker.log({"seed": s, f"{a.task}/f1": f1})
         tracker.metrics.setdefault("per_seed", {})[s] = round(f1s[-1], 4)
         print(json.dumps({"seed": s, "f1": round(f1s[-1], 4)}), flush=True)
-    res = {"task": a.task, "model": a.model, "protocol": a.protocol, "long_docs": a.long_docs, **hp, "seeds": a.seeds, "f1": [round(f, 4) for f in f1s],
+    res = {"task": a.task, "model": a.model, "family": a.family, "extrapolation": a.extrapolation, "max_length": a.max_length,
+           "protocol": a.protocol, "long_docs": a.long_docs, **hp, "seeds": a.seeds, "f1": [round(f, 4) for f in f1s],
            "mean": round(float(np.mean(f1s)), 4),
            "std": round(float(np.std(f1s, ddof=1)), 4) if len(f1s) > 1 else 0.0,
            "minutes": round((time.time() - t0) / 60, 1)}

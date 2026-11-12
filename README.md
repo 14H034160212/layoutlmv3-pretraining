@@ -48,6 +48,7 @@ These differences from the paper or quirks are known and left as they are:
 
 - **Span masking works on sub-word tokens**, not whole words: a span can start or end inside a word. The paper does not say which unit it uses.
 - **FUNSD fine-tuning labels a few non-first sub-tokens.** The tokenizer splits the check-box characters ☐/☑ into two byte-level tokens and the processor labels both, so 123 of 21,958 labelled tokens in FUNSD train (57 of 8,413 in test) are second sub-tokens. All checkpoints are fine-tuned and scored the same way, so comparisons are not affected, but absolute F1 differs slightly from a first-sub-token-only evaluation.
+- **The relative position bias tables are not trained (transformers ≥ 4.42).** `transformers`' LayoutLMv3 looks up the 1D and 2D relative position biases inside `torch.no_grad()` (added in transformers#30988), so `rel_pos_bias`, `rel_pos_x_bias` and `rel_pos_y_bias` get no gradient and keep their released values in every pre-training and fine-tuning run here. Reported as [transformers#50636](https://github.com/huggingface/transformers/issues/50636).
 - **The FUNSD-test filter has limited recall.** It compares word 5-grams in OCR order. FUNSD test pages in annotation order are all caught, but in reading order only 62% are, and 46% with 5% word-level OCR errors. A near-duplicate page with different OCR order can get through.
 
 ## Quick start
