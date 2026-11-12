@@ -27,11 +27,13 @@ from layoutlmv3_pretraining.tracking import RunTracker, write_json_atomic
 from transformers import (LayoutLMv3ForTokenClassification, LayoutLMv3Processor,
                           get_linear_schedule_with_warmup)
 
-DEFAULTS = {"funsd": dict(steps=1000, lr=1e-5, batch_size=2), "cord": dict(steps=1000, lr=5e-5, batch_size=4)}
+DEFAULTS = {"funsd": dict(steps=1000, lr=1e-5, batch_size=2), "cord": dict(steps=1000, lr=5e-5, batch_size=4),
+            "vrdu": dict(steps=2000, lr=3e-5, batch_size=2)}
 # --protocol strict / paper: see --help. paper: the LayoutLMv3 paper's settings (Sec. 3.3: 1,000 steps; FUNSD lr 1e-5, batch 16; CORD lr 5e-5,
 # batch 64), labels on the first sub-token of each word only, and words cut off by the 512-token limit scored as
 # missed (predicted "O") instead of being dropped from the evaluation.
-PAPER = {"funsd": dict(steps=1000, lr=1e-5, batch_size=16), "cord": dict(steps=1000, lr=5e-5, batch_size=64)}
+PAPER = {"funsd": dict(steps=1000, lr=1e-5, batch_size=16), "cord": dict(steps=1000, lr=5e-5, batch_size=64),
+         "vrdu": dict(steps=2000, lr=3e-5, batch_size=2)}
 
 
 def encode(processor, examples, first_subword_only=False, stride=None, max_length=512, dynamic=False):
@@ -117,9 +119,16 @@ def cord_to_token_classification(ground_truth, label2id):
     return {"tokens": tokens, "bboxes": boxes, "ner_tags": tags}
 
 
+VRDU_DIR = os.environ.get("VRDU_PAGES", "/data/qbao775/datasets/vrdu/adbuy_pages_hf")
+
+
 def load_task(task):
     if task == "funsd":
         return load_dataset("nielsr/funsd-layoutlmv3")
+    if task == "vrdu":  # VRDU Ad-buy Forms pages, built by scripts/prepare_vrdu.py (official mixed-template split)
+        from datasets import DatasetDict, load_from_disk
+        d = load_from_disk(VRDU_DIR)
+        return DatasetDict(train=d["train"].remove_columns(["doc", "page"]), test=d["test"].remove_columns(["doc", "page"]))
     raw = load_dataset("naver-clova-ix/cord-v2")
     cats = sorted({l["category"].upper() for s in raw for gt in raw[s]["ground_truth"]
                    for l in json.loads(gt)["valid_line"]})
@@ -313,7 +322,7 @@ def run(ds, model_path, seed, steps, lr, batch_size, device, eval_at=(), paper=F
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", required=True)
-    ap.add_argument("--task", choices=["funsd", "cord"], default="funsd")
+    ap.add_argument("--task", choices=["funsd", "cord", "vrdu"], default="funsd")
     ap.add_argument("--seeds", type=int, nargs="+", default=[1, 2, 3])
     ap.add_argument("--steps", type=int)
     ap.add_argument("--lr", type=float)
@@ -367,7 +376,7 @@ def main():
                               family=a.family, extrapolation=a.extrapolation, max_length=a.max_length,
                               extend_positions=a.extend_positions, sdpa=a.sdpa,
                               gradient_checkpointing=a.gradient_checkpointing, dynamic_padding=a.dynamic_padding, **hp,
-                              dataset="nielsr/funsd-layoutlmv3" if a.task == "funsd" else "naver-clova-ix/cord-v2")
+                              dataset={"funsd": "nielsr/funsd-layoutlmv3", "cord": "naver-clova-ix/cord-v2", "vrdu": VRDU_DIR}[a.task])
         tracker.outputs["results"] = os.path.abspath(a.out) if a.out else None
         res = finetune(a, hp, tracker)
         tracker.metrics.update({k: res[k] for k in ("f1", "mean", "std", "minutes")})
