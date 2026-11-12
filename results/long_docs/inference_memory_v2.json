@@ -1,0 +1,88 @@
+{
+ "cap_gb": 15.0,
+ "stride": 128,
+ "gpu": "NVIDIA A100-SXM4-80GB",
+ "results": [
+  {
+   "method": "ernie-extrap",
+   "doc_tokens": 1024,
+   "weights_mib": 1078,
+   "peak_activation_mib": 388,
+   "total_mib": 1466,
+   "seconds": 0.139,
+   "status": "ok"
+  },
+  {
+   "method": "ernie-extrap",
+   "doc_tokens": 2048,
+   "weights_mib": 1078,
+   "peak_activation_mib": 881,
+   "total_mib": 1959,
+   "seconds": 0.318,
+   "status": "ok"
+  },
+  {
+   "method": "ernie-extrap",
+   "doc_tokens": 4096,
+   "weights_mib": 1078,
+   "peak_activation_mib": 2728,
+   "total_mib": 3806,
+   "seconds": 0.529,
+   "status": "ok"
+  },
+  {
+   "method": "v3-poscopy",
+   "doc_tokens": 1024,
+   "weights_mib": 1574,
+   "peak_activation_mib": 615,
+   "total_mib": 2189,
+   "seconds": 0.079,
+   "status": "ok"
+  },
+  {
+   "method": "v3-poscopy",
+   "doc_tokens": 2048,
+   "weights_mib": 1574,
+   "peak_activation_mib": 1602,
+   "total_mib": 3176,
+   "seconds": 0.222,
+   "status": "ok"
+  },
+  {
+   "method": "v3-poscopy",
+   "doc_tokens": 4096,
+   "weights_mib": 1574,
+   "peak_activation_mib": 5299,
+   "total_mib": 6873,
+   "seconds": 0.685,
+   "status": "ok"
+  },
+  {
+   "method": "v3-poscopy-sdpa",
+   "doc_tokens": 1024,
+   "weights_mib": 1574,
+   "peak_activation_mib": 303,
+   "total_mib": 1877,
+   "seconds": 0.051,
+   "status": "ok"
+  },
+  {
+   "method": "v3-poscopy-sdpa",
+   "doc_tokens": 2048,
+   "weights_mib": 1574,
+   "peak_activation_mib": 1009,
+   "total_mib": 2583,
+   "seconds": 0.085,
+   "status": "ok"
+  },
+  {
+   "method": "v3-poscopy-sdpa",
+   "doc_tokens": 4096,
+   "weights_mib": 1574,
+   "peak_activation_mib": 3673,
+   "total_mib": 5247,
+   "seconds": 0.259,
+   "status": "ok"
+  }
+ ]
+}

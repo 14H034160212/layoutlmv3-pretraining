@@ -110,6 +110,10 @@ def main():
         else:
             proc, tok = v3_proc, v3_proc.tokenizer
             model = LayoutLMv3ForTokenClassification.from_pretrained("microsoft/layoutlmv3-base", num_labels=7)
+            if method == "v3-poscopy-sdpa":
+                from layoutlmv3_pretraining.long_docs import use_sdpa_attention
+
+                use_sdpa_attention(model)
         model = model.to(device).eval()
         weights_mib = torch.cuda.memory_allocated() / 2**20
         for length in a.lengths:
@@ -119,7 +123,7 @@ def main():
                 if method.endswith("window"):
                     batches = windows(proc, words, boxes, image, a.stride, v3_keys)
                     row["windows"] = len(batches)
-                elif method == "v3-poscopy":
+                elif method.startswith("v3-poscopy"):
                     if length > 512:
                         tile_position_embeddings(model, length)
                     batches = full_sequence(proc, words, boxes, image, length, v3_keys)

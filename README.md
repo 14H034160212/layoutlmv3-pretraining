@@ -466,7 +466,7 @@ So there is **no gain**, which is what you should expect from 129 documents. The
 
 Measured on an A100 with a 15 GB per-process cap (`torch.cuda.set_per_process_memory_fraction`) and only the SDPA kernels a V100 runs, fp16, one document per row (`scripts/bench_inference_memory.py`, `scripts/bench_train_memory.py`, `results/long_docs/`).
 
-**Inference, peak activation memory.** 512-token windows (`--long_docs window`) stay flat at about 0.34 GB (LayoutLMv3) and 0.28 GB (ERNIE-Layout) up to 4096 tokens; only the time grows with the number of windows. A single long sequence grows with the square of the length: ERNIE-Layout's RoPE extrapolation needs 4.4 GB at 2048 tokens and did not fit at 4096 with the port's one-hot relative biases.
+**Inference, peak activation memory.** 512-token windows (`--long_docs window`) stay flat at about 0.34 GB (LayoutLMv3) and 0.28 GB (ERNIE-Layout) up to 4096 tokens; only the time grows with the number of windows. A single long sequence grows with the square of the length. ERNIE-Layout's RoPE extrapolation with the port's one-hot relative biases needs 4.4 GB at 2048 tokens and did not fit at 4096; with index-select biases it needs 0.9 GB at 2048 and 2.7 GB at 4096. LayoutLMv3 with tiled positions needs 1.6 / 5.3 GB at 2048 / 4096, and 1.0 / 3.7 GB with `--sdpa`.
 
 **Training (fine-tuning), peak memory, fp16:**
 
