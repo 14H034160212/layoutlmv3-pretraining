@@ -1,0 +1,127 @@
+{
+ "cap_gb": 15.0,
+ "gpu": "NVIDIA A100-SXM4-80GB",
+ "torch": "2.6.0+cu124",
+ "rows": [
+  {
+   "method": "v3-poscopy",
+   "variant": "ckpt",
+   "length": 1024,
+   "precision": "fp16",
+   "batch_size": 1,
+   "peak_gib": 2.38,
+   "seconds_per_step": 0.283,
+   "fits_cap": true
+  },
+  {
+   "method": "v3-poscopy",
+   "variant": "ckpt",
+   "length": 1024,
+   "precision": "fp16",
+   "batch_size": 2,
+   "peak_gib": 3.38,
+   "seconds_per_step": 0.433,
+   "fits_cap": true
+  },
+  {
+   "method": "v3-poscopy",
+   "variant": "sdpa+ckpt",
+   "length": 1024,
+   "precision": "fp16",
+   "batch_size": 1,
+   "peak_gib": 3.83,
+   "seconds_per_step": 0.119,
+   "fits_cap": true
+  },
+  {
+   "method": "v3-poscopy",
+   "variant": "sdpa+ckpt",
+   "length": 1024,
+   "precision": "fp16",
+   "batch_size": 2,
+   "peak_gib": 4.81,
+   "seconds_per_step": 0.198,
+   "fits_cap": true
+  },
+  {
+   "method": "v3-poscopy",
+   "variant": "ckpt",
+   "length": 2048,
+   "precision": "fp16",
+   "batch_size": 1,
+   "peak_gib": 6.45,
+   "seconds_per_step": 0.671,
+   "fits_cap": true
+  },
+  {
+   "method": "v3-poscopy",
+   "variant": "ckpt",
+   "length": 2048,
+   "precision": "fp16",
+   "batch_size": 2,
+   "peak_gib": 8.72,
+   "seconds_per_step": 1.279,
+   "fits_cap": true
+  },
+  {
+   "method": "v3-poscopy",
+   "variant": "sdpa+ckpt",
+   "length": 2048,
+   "precision": "fp16",
+   "batch_size": 1,
+   "peak_gib": 7.35,
+   "seconds_per_step": 0.252,
+   "fits_cap": true
+  },
+  {
+   "method": "v3-poscopy",
+   "variant": "sdpa+ckpt",
+   "length": 2048,
+   "precision": "fp16",
+   "batch_size": 2,
+   "peak_gib": 8.04,
+   "seconds_per_step": 0.402,
+   "fits_cap": true
+  },
+  {
+   "method": "v3-poscopy",
+   "variant": "ckpt",
+   "length": 4096,
+   "precision": "fp16",
+   "batch_size": 1,
+   "peak_gib": 9.4,
+   "seconds_per_step": 2.157,
+   "fits_cap": true
+  },
+  {
+   "method": "v3-poscopy",
+   "variant": "ckpt",
+   "length": 4096,
+   "precision": "fp16",
+   "batch_size": 2,
+   "peak_gib": null,
+   "fits_cap": false,
+   "status": "OOM above 15.0 GB cap"
+  },
+  {
+   "method": "v3-poscopy",
+   "variant": "sdpa+ckpt",
+   "length": 4096,
+   "precision": "fp16",
+   "batch_size": 1,
+   "peak_gib": 9.85,
+   "seconds_per_step": 0.645,
+   "fits_cap": true
+  },
+  {
+   "method": "v3-poscopy",
+   "variant": "sdpa+ckpt",
+   "length": 4096,
+   "precision": "fp16",
+   "batch_size": 2,
+   "peak_gib": null,
+   "fits_cap": false,
+   "status": "OOM above 15.0 GB cap"
+  }
+ ]
+}

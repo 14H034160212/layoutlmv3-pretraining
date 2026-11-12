@@ -57,7 +57,7 @@ class ErnieLayoutForPreTraining(nn.Module):
         processor, _, _ = ernie_layout.load(2, path)  # tokenizer shim and PaddleNLP image preprocessing
         config = networks.ErnieLayoutConfig.from_pretrained(path)
         backbone = networks.ErnieLayoutModel.from_pretrained(path, config=config)
-        return ernie_layout.keep_batchnorm_frozen(cls(backbone)), processor
+        return ernie_layout.use_index_select_relative_bias(ernie_layout.keep_batchnorm_frozen(cls(backbone))), processor
 
     def new_parameters(self) -> dict[str, nn.Parameter]:
         """Parameters the released checkpoint does not provide (the heads)."""

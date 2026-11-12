@@ -462,6 +462,28 @@ Validation losses bottom out around steps 750 (MIM) and 1,250 (MLM) and then ris
 
 So there is **no gain**, which is what you should expect from 129 documents. The base model's score matches the commonly reported ~0.90 for this fine-tuning recipe, which is a useful check that the evaluation is set up correctly. (Seeds 1-3 of the 5-seed base run above reproduce these three scores exactly.)
 
+## Long documents within a 16 GB GPU
+
+Measured on an A100 with a 15 GB per-process cap (`torch.cuda.set_per_process_memory_fraction`) and only the SDPA kernels a V100 runs, fp16, one document per row (`scripts/bench_inference_memory.py`, `scripts/bench_train_memory.py`, `results/long_docs/`).
+
+**Inference, peak activation memory.** 512-token windows (`--long_docs window`) stay flat at about 0.34 GB (LayoutLMv3) and 0.28 GB (ERNIE-Layout) up to 4096 tokens; only the time grows with the number of windows. A single long sequence grows with the square of the length: ERNIE-Layout's RoPE extrapolation needs 4.4 GB at 2048 tokens and did not fit at 4096 with the port's one-hot relative biases.
+
+**Training (fine-tuning), peak memory, fp16:**
+
+| | 1024, batch 2 | 2048, batch 2 | 4096, batch 1 | 4096, batch 2 |
+|---|---:|---:|---:|---:|
+| LayoutLMv3, tiled positions | 7.4 GB | OOM | OOM | OOM |
+| + `--sdpa` | 3.7 GB | 8.3 GB | 12.6 GB | OOM |
+| + `--sdpa --gradient_checkpointing` | 4.8 GB | 8.0 GB | 9.9 GB | OOM |
+| ERNIE-Layout, extrapolation, index-select biases | 5.3 GB | 7.9 GB | 10.6 GB | OOM |
+| + `--gradient_checkpointing` | 5.3 GB | 5.3 GB | 5.5 GB | 8.0 GB |
+
+Before the index-select change, ERNIE-Layout's extrapolation model did not fit 2048 at batch 2. Two changes, both exact (tests in `tests/test_long_docs_memory.py`):
+- `--sdpa` (`long_docs.use_sdpa_attention`): LayoutLMv3's self-attention through `scaled_dot_product_attention`, with the relative-position biases and padding mask as one additive mask shared by all layers. transformers' implementation keeps the n x n attention probabilities of every layer for the backward pass.
+- ERNIE-Layout relative biases by index lookup (`ernie_layout.use_index_select_relative_bias`, always on): the port's extrapolation model builds n x n x 64 one-hot tensors for the 2D biases; its standard model indexes the weight, whose backward is slow.
+
+`--gradient_checkpointing` (`long_docs.checkpoint_encoder_layers`) recomputes layer activations in the backward pass; transformers' `LayoutLMv3ForTokenClassification` does not support `gradient_checkpointing_enable()`, and the ERNIE-Layout port removed it. ERNIE-Layout's floor of about 5.3 GB comes from AdamW state for its 250k-token vocabulary. These are measurements on an A100 under a cap, not on a V100; V100 has no bf16, so fp16 numerics should be confirmed there.
+
 ## ERNIE-Layout (experimental)
 
 [ERNIE-Layout](https://arxiv.org/abs/2210.06155) can be fine-tuned, evaluated on long documents and continued-pretrained here through the unofficial PyTorch port [NormXU/ERNIE-Layout-Pytorch](https://github.com/NormXU/ERNIE-Layout-Pytorch) (weights `Norm/ERNIE-Layout-Pytorch`). Clone the port and set `ERNIE_LAYOUT_PYTORCH=<path>`; it also needs `einops` and `sentencepiece`. `src/layoutlmv3_pretraining/ernie_layout.py` makes it work with current transformers and fixes two things:

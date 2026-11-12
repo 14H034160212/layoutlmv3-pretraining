@@ -76,6 +76,54 @@ def keep_batchnorm_frozen(model):
     return model
 
 
+def use_index_select_relative_bias(model):
+    """Compute the port's relative-position biases with an index lookup instead of one-hot vectors.
+
+    The extrapolation model builds one-hot tensors of n x n x buckets (64 for the 2D biases, x and y) and projects
+    them to the heads; at 4096 tokens these alone take about 9 GB. The standard model indexes the weight directly,
+    whose backward is very slow (huggingface/transformers#30974). `index_select` gives the same values and gradients
+    with n x n x heads memory and a fast backward."""
+    import types
+
+    import torch
+
+    def lookup(linear, buckets, like=None):
+        table = linear.weight.t()                                     # buckets x heads
+        out = table.index_select(0, buckets.reshape(-1)).view(*buckets.shape, -1).permute(0, 3, 1, 2)
+        if torch.is_autocast_enabled():
+            out = out.to(torch.get_autocast_dtype("cuda"))
+        elif like is not None:
+            out = out.to(like.dtype)
+        return out.contiguous()
+
+    def make(encoder, bucket_fn):
+        def cal_1d(self, *args):
+            position_ids, hidden = args[-1], (args[0] if len(args) == 2 else None)
+            rel = bucket_fn(position_ids.unsqueeze(-2) - position_ids.unsqueeze(-1), num_buckets=self.rel_pos_bins,
+                            max_distance=self.max_rel_pos)
+            return lookup(self.rel_pos_bias, rel, hidden)
+
+        def cal_2d(self, *args):
+            bbox, hidden = args[-1], (args[0] if len(args) == 2 else None)
+            x, y = bbox[:, :, 0], bbox[:, :, 3]
+            rx = bucket_fn(x.unsqueeze(-2) - x.unsqueeze(-1), num_buckets=self.rel_2d_pos_bins,
+                           max_distance=self.max_rel_2d_pos)
+            ry = bucket_fn(y.unsqueeze(-2) - y.unsqueeze(-1), num_buckets=self.rel_2d_pos_bins,
+                           max_distance=self.max_rel_2d_pos)
+            return lookup(self.rel_pos_x_bias, rx, hidden) + lookup(self.rel_pos_y_bias, ry, hidden)
+
+        if hasattr(encoder, "rel_pos_bias"):
+            encoder._cal_1d_pos_emb = types.MethodType(cal_1d, encoder)
+        if hasattr(encoder, "rel_pos_x_bias"):
+            encoder._cal_2d_pos_emb = types.MethodType(cal_2d, encoder)
+
+    import sys
+    for module in model.modules():
+        if type(module).__name__ == "ErnieLayoutEncoder":
+            make(module, sys.modules[type(module).__module__].relative_position_bucket)
+    return model
+
+
 def load(num_labels: int, path: str = DEFAULT_PATH, extrapolation: bool = False, use_sdpa: bool = False):
     """Return (processor, model, tokenizer) for token classification with `num_labels` classes. `use_sdpa` sets the
     port's `use_flash_attn`, which runs attention through torch's scaled_dot_product_attention."""
@@ -103,5 +151,5 @@ def load(num_labels: int, path: str = DEFAULT_PATH, extrapolation: bool = False,
         model_cls = networks.exErnieLayoutForTokenClassification
     else:
         model_cls = networks.ErnieLayoutForTokenClassification
-    model = keep_batchnorm_frozen(model_cls.from_pretrained(path, config=config))
+    model = use_index_select_relative_bias(keep_batchnorm_frozen(model_cls.from_pretrained(path, config=config)))
     return processor, model, tokenizer

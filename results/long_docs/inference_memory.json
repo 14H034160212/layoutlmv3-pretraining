@@ -1,0 +1,189 @@
+{
+ "cap_gb": 15.0,
+ "stride": 128,
+ "gpu": "NVIDIA A100-SXM4-80GB",
+ "results": [
+  {
+   "method": "v3-window",
+   "doc_tokens": 512,
+   "weights_mib": 479,
+   "windows": 1,
+   "peak_activation_mib": 332,
+   "total_mib": 812,
+   "seconds": 0.023,
+   "status": "ok"
+  },
+  {
+   "method": "v3-window",
+   "doc_tokens": 1024,
+   "weights_mib": 479,
+   "windows": 3,
+   "peak_activation_mib": 343,
+   "total_mib": 822,
+   "seconds": 0.049,
+   "status": "ok"
+  },
+  {
+   "method": "v3-window",
+   "doc_tokens": 2048,
+   "weights_mib": 479,
+   "windows": 6,
+   "peak_activation_mib": 343,
+   "total_mib": 822,
+   "seconds": 0.096,
+   "status": "ok"
+  },
+  {
+   "method": "v3-window",
+   "doc_tokens": 4096,
+   "weights_mib": 479,
+   "windows": 11,
+   "peak_activation_mib": 343,
+   "total_mib": 822,
+   "seconds": 0.154,
+   "status": "ok"
+  },
+  {
+   "method": "ernie-window",
+   "doc_tokens": 512,
+   "weights_mib": 1083,
+   "windows": 1,
+   "peak_activation_mib": 265,
+   "total_mib": 1348,
+   "seconds": 0.021,
+   "status": "ok"
+  },
+  {
+   "method": "ernie-window",
+   "doc_tokens": 1024,
+   "weights_mib": 1083,
+   "windows": 3,
+   "peak_activation_mib": 276,
+   "total_mib": 1360,
+   "seconds": 0.048,
+   "status": "ok"
+  },
+  {
+   "method": "ernie-window",
+   "doc_tokens": 2048,
+   "weights_mib": 1083,
+   "windows": 6,
+   "peak_activation_mib": 276,
+   "total_mib": 1360,
+   "seconds": 0.089,
+   "status": "ok"
+  },
+  {
+   "method": "ernie-window",
+   "doc_tokens": 4096,
+   "weights_mib": 1083,
+   "windows": 11,
+   "peak_activation_mib": 276,
+   "total_mib": 1360,
+   "seconds": 0.162,
+   "status": "ok"
+  },
+  {
+   "method": "ernie-extrap",
+   "doc_tokens": 512,
+   "weights_mib": 1087,
+   "peak_activation_mib": 320,
+   "total_mib": 1407,
+   "seconds": 0.028,
+   "status": "ok"
+  },
+  {
+   "method": "ernie-extrap",
+   "doc_tokens": 1024,
+   "weights_mib": 1087,
+   "peak_activation_mib": 1160,
+   "total_mib": 2247,
+   "seconds": 0.033,
+   "status": "ok"
+  },
+  {
+   "method": "ernie-extrap",
+   "doc_tokens": 2048,
+   "weights_mib": 1087,
+   "peak_activation_mib": 4411,
+   "total_mib": 5498,
+   "seconds": 0.073,
+   "status": "ok"
+  },
+  {
+   "method": "ernie-extrap",
+   "doc_tokens": 4096,
+   "weights_mib": 1087,
+   "status": "OOM above 15.0 GB cap"
+  },
+  {
+   "method": "ernie-extrap-sdpa",
+   "doc_tokens": 512,
+   "weights_mib": 1087,
+   "peak_activation_mib": 320,
+   "total_mib": 1407,
+   "seconds": 0.028,
+   "status": "ok"
+  },
+  {
+   "method": "ernie-extrap-sdpa",
+   "doc_tokens": 1024,
+   "weights_mib": 1087,
+   "peak_activation_mib": 1160,
+   "total_mib": 2247,
+   "seconds": 0.03,
+   "status": "ok"
+  },
+  {
+   "method": "ernie-extrap-sdpa",
+   "doc_tokens": 2048,
+   "weights_mib": 1087,
+   "peak_activation_mib": 4411,
+   "total_mib": 5498,
+   "seconds": 0.064,
+   "status": "ok"
+  },
+  {
+   "method": "ernie-extrap-sdpa",
+   "doc_tokens": 4096,
+   "weights_mib": 1087,
+   "status": "OOM above 15.0 GB cap"
+  },
+  {
+   "method": "v3-poscopy",
+   "doc_tokens": 512,
+   "weights_mib": 1569,
+   "peak_activation_mib": 343,
+   "total_mib": 1912,
+   "seconds": 0.02,
+   "status": "ok"
+  },
+  {
+   "method": "v3-poscopy",
+   "doc_tokens": 1024,
+   "weights_mib": 1569,
+   "peak_activation_mib": 614,
+   "total_mib": 2183,
+   "seconds": 0.035,
+   "status": "ok"
+  },
+  {
+   "method": "v3-poscopy",
+   "doc_tokens": 2048,
+   "weights_mib": 1569,
+   "peak_activation_mib": 1603,
+   "total_mib": 3172,
+   "seconds": 0.077,
+   "status": "ok"
+  },
+  {
+   "method": "v3-poscopy",
+   "doc_tokens": 4096,
+   "weights_mib": 1569,
+   "peak_activation_mib": 5300,
+   "total_mib": 6869,
+   "seconds": 0.225,
+   "status": "ok"
+  }
+ ]
+}

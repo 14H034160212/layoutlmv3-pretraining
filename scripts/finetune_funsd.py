@@ -199,7 +199,8 @@ def evaluate_windows(model, windows, gold, labels, device):
 
 
 def run(ds, model_path, seed, steps, lr, batch_size, device, eval_at=(), paper=False, micro_batch=16, stride=None,
-        family="layoutlmv3", extrapolation=False, max_length=512, extend_positions=False):
+        family="layoutlmv3", extrapolation=False, max_length=512, extend_positions=False, sdpa=False,
+        gradient_checkpointing=False):
     torch.manual_seed(seed); np.random.seed(seed)
     labels = ds["train"].features["ner_tags"].feature.names
     if family == "ernie-layout":
@@ -230,6 +231,11 @@ def run(ds, model_path, seed, steps, lr, batch_size, device, eval_at=(), paper=F
         if extend_positions:
             from layoutlmv3_pretraining.long_docs import extend_position_embeddings
             extend_position_embeddings(model.layoutlmv3, max_length)
+    from layoutlmv3_pretraining.long_docs import checkpoint_encoder_layers, use_sdpa_attention
+    if sdpa and family != "ernie-layout":
+        use_sdpa_attention(model)
+    if gradient_checkpointing:
+        checkpoint_encoder_layers(model)
     model = model.to(device)
     g = torch.Generator().manual_seed(seed)
     accum = max(1, batch_size // micro_batch) if paper else 1
@@ -293,6 +299,9 @@ def main():
                     help="--family ernie-layout: the port's RoPE extrapolation model (set_config_for_extrapolation)")
     ap.add_argument("--extend_positions", action="store_true",
                     help="--family layoutlmv3: tile the 1D position embeddings to --max_length (Longformer-style copy)")
+    ap.add_argument("--sdpa", action="store_true",
+                    help="--family layoutlmv3: run attention through SDPA (same results, much less memory)")
+    ap.add_argument("--gradient_checkpointing", action="store_true", help="recompute layer activations in backward")
     ap.add_argument("--max_length", type=int, default=512,
                     help="tokens per sequence; above 512 needs --extrapolation (ERNIE-Layout) or --extend_positions "
                          "(LayoutLMv3)")
@@ -315,7 +324,8 @@ def main():
         tracker.config.update(task=a.task, model=a.model, seeds=a.seeds, protocol=a.protocol, micro_batch=a.micro_batch,
                               long_docs=a.long_docs, window_stride=a.window_stride if a.long_docs == "window" else None,
                               family=a.family, extrapolation=a.extrapolation, max_length=a.max_length,
-                              extend_positions=a.extend_positions, **hp,
+                              extend_positions=a.extend_positions, sdpa=a.sdpa,
+                              gradient_checkpointing=a.gradient_checkpointing, **hp,
                               dataset="nielsr/funsd-layoutlmv3" if a.task == "funsd" else "naver-clova-ix/cord-v2")
         tracker.outputs["results"] = os.path.abspath(a.out) if a.out else None
         res = finetune(a, hp, tracker)
@@ -334,7 +344,8 @@ def finetune(a, hp, tracker):
         f1, curve = run(ds, a.model, s, device=device, eval_at=set(a.eval_at), paper=a.protocol != "legacy",
                         micro_batch=a.micro_batch, stride=a.window_stride if a.long_docs == "window" else None,
                         family=a.family, extrapolation=a.extrapolation, max_length=a.max_length,
-                        extend_positions=a.extend_positions, **hp)
+                        extend_positions=a.extend_positions, sdpa=a.sdpa,
+                        gradient_checkpointing=a.gradient_checkpointing, **hp)
         f1s.append(f1)
         if curve:
             curves[s] = curve
