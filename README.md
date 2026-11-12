@@ -509,6 +509,8 @@ Before the index-select change, ERNIE-Layout's extrapolation model did not fit 2
 | ERNIE-Layout, RoPE extrapolation, 1024 | 28.19 ± 2.67 | -56.13 | <0.001 | 0/10 |
 | ERNIE-Layout, RoPE extrapolation, 2048 | 28.71 ± 1.28 | -55.61 | <0.001 | 0/10 |
 
+**Dynamic padding** (`--dynamic_padding`) pads each batch to its longest document instead of to `--max_length`; the outputs are the same (max logit difference about 5e-6; for ERNIE-Layout the collator passes position_ids that keep each token at its fixed-padding position). With a 2048-token limit, LayoutLMv3 + `--sdpa` reaches the same F1 (89.28 ± 0.58 against 89.27 ± 0.48, paired p = 0.96) in 12.6 minutes for 10 seeds instead of 55.4 ([W&B](https://forge.coreweave.com/wandb/qbao775/layoutlmv3-pretraining/runs/8mo0fzf6)), and inference on the FUNSD test set costs the same per document as with a 512-token limit (LayoutLMv3 10.2 ms, ERNIE-Layout 13.7 ms, against 22.1 / 39.7 ms with fixed padding; `results/long_docs/dynamic_padding.json`).
+
 Windows, and tiled positions at 1024 or 2048, recover nearly all of the 0.7 points that truncation loses; 2048 cannot add more on FUNSD because no document is that long. The port's extrapolation model replaces ERNIE-Layout's pretrained absolute position embeddings with RoPE, which 1,000 fine-tuning steps on FUNSD do not learn: it is not usable this way. ERNIE-Layout's lower F1 overall uses LayoutLMv3's FUNSD recipe (lr 1e-5, 1,000 steps, batch 2), not tuned for it.
 
 ## ERNIE-Layout (experimental)
