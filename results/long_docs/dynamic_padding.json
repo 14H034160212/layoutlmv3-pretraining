@@ -1,0 +1,126 @@
+{
+ "gpu": "NVIDIA A100-SXM4-80GB",
+ "cap_gb": 15.0,
+ "rows": [
+  {
+   "family": "layoutlmv3",
+   "max_length": 512,
+   "padding": "fixed",
+   "documents": 50,
+   "tokens_processed": 25600,
+   "seconds_total": 0.506,
+   "ms_per_document": 10.1,
+   "peak_gib": 0.85
+  },
+  {
+   "family": "layoutlmv3",
+   "max_length": 512,
+   "padding": "dynamic",
+   "documents": 50,
+   "tokens_processed": 14561,
+   "seconds_total": 0.519,
+   "ms_per_document": 10.4,
+   "peak_gib": 0.85
+  },
+  {
+   "family": "layoutlmv3",
+   "max_length": 1024,
+   "padding": "fixed",
+   "documents": 50,
+   "tokens_processed": 51200,
+   "seconds_total": 0.512,
+   "ms_per_document": 10.2,
+   "peak_gib": 1.3
+  },
+  {
+   "family": "layoutlmv3",
+   "max_length": 1024,
+   "padding": "dynamic",
+   "documents": 50,
+   "tokens_processed": 15208,
+   "seconds_total": 0.51,
+   "ms_per_document": 10.2,
+   "peak_gib": 1.18
+  },
+  {
+   "family": "layoutlmv3",
+   "max_length": 2048,
+   "padding": "fixed",
+   "documents": 50,
+   "tokens_processed": 102400,
+   "seconds_total": 1.104,
+   "ms_per_document": 22.1,
+   "peak_gib": 2.52
+  },
+  {
+   "family": "layoutlmv3",
+   "max_length": 2048,
+   "padding": "dynamic",
+   "documents": 50,
+   "tokens_processed": 15208,
+   "seconds_total": 0.508,
+   "ms_per_document": 10.2,
+   "peak_gib": 1.32
+  },
+  {
+   "family": "ernie-layout",
+   "max_length": 512,
+   "padding": "fixed",
+   "documents": 50,
+   "tokens_processed": 25600,
+   "seconds_total": 0.668,
+   "ms_per_document": 13.4,
+   "peak_gib": 1.37
+  },
+  {
+   "family": "ernie-layout",
+   "max_length": 512,
+   "padding": "dynamic",
+   "documents": 50,
+   "tokens_processed": 15346,
+   "seconds_total": 0.686,
+   "ms_per_document": 13.7,
+   "peak_gib": 1.37
+  },
+  {
+   "family": "ernie-layout",
+   "max_length": 1024,
+   "padding": "fixed",
+   "documents": 50,
+   "tokens_processed": 51200,
+   "seconds_total": 0.725,
+   "ms_per_document": 14.5,
+   "peak_gib": 1.54
+  },
+  {
+   "family": "ernie-layout",
+   "max_length": 1024,
+   "padding": "dynamic",
+   "documents": 50,
+   "tokens_processed": 16224,
+   "seconds_total": 0.674,
+   "ms_per_document": 13.5,
+   "peak_gib": 1.51
+  },
+  {
+   "family": "ernie-layout",
+   "max_length": 2048,
+   "padding": "fixed",
+   "documents": 50,
+   "tokens_processed": 102400,
+   "seconds_total": 1.983,
+   "ms_per_document": 39.7,
+   "peak_gib": 2.09
+  },
+  {
+   "family": "ernie-layout",
+   "max_length": 2048,
+   "padding": "dynamic",
+   "documents": 50,
+   "tokens_processed": 16224,
+   "seconds_total": 0.687,
+   "ms_per_document": 13.7,
+   "peak_gib": 1.52
+  }
+ ]
+}

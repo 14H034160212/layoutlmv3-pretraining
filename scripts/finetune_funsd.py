@@ -34,13 +34,13 @@ DEFAULTS = {"funsd": dict(steps=1000, lr=1e-5, batch_size=2), "cord": dict(steps
 PAPER = {"funsd": dict(steps=1000, lr=1e-5, batch_size=16), "cord": dict(steps=1000, lr=5e-5, batch_size=64)}
 
 
-def encode(processor, examples, first_subword_only=False, stride=None, max_length=512):
+def encode(processor, examples, first_subword_only=False, stride=None, max_length=512, dynamic=False):
     """Encode examples; with `stride`, a document longer than 512 tokens becomes several overlapping windows
     (`stride` tokens of overlap) instead of being truncated, each with the full page image."""
     images = [im.convert("RGB") for im in examples["image"]]
     windows = dict(stride=stride, return_overflowing_tokens=True) if stride is not None else {}
     enc = processor(images, examples["tokens"], boxes=examples["bboxes"], word_labels=examples["ner_tags"],
-                    truncation=True, padding="max_length", max_length=max_length, **windows)
+                    truncation=True, padding=False if dynamic else "max_length", max_length=max_length, **windows)
     if first_subword_only:  # the tokenizer's own rule misses some words (e.g. "\u2610"/"\u2611" split in 2 tokens)
         counts = None
         if stride is not None:  # sub-tokens per word in the whole document, to find windows that start inside a word
@@ -132,12 +132,38 @@ def load_task(task):
                    remove_columns=["ground_truth"], features=feats)
 
 
-def evaluate(model, test, labels, device, tails=None):
+def make_dynamic_collate(pad_id, side, max_length, ernie):
+    """Pad each batch to its longest document instead of to `max_length` (on the tokenizer's padding side).
+
+    ERNIE-Layout numbers text positions from 0 across the left padding, so its real tokens move when the padding
+    length changes. Passing position_ids = arange(n) + (max_length - n) puts every real token at the position it
+    has when padded to max_length, so the outputs are the same as with fixed padding. LayoutLMv3 pads on the right and
+    derives its positions from the non-padding tokens, so it needs nothing extra."""
+
+    def collate(features):
+        n = max(len(f["input_ids"]) for f in features)
+        cols = {"input_ids": pad_id, "attention_mask": 0, "bbox": [0, 0, 0, 0], "labels": -100}
+        batch = {}
+        for key, value in cols.items():
+            rows = []
+            for f in features:
+                seq = list(f[key]); fill = [value] * (n - len(seq))
+                rows.append(fill + seq if side == "left" else seq + fill)
+            batch[key] = torch.tensor(rows)
+        batch["pixel_values"] = torch.stack([torch.as_tensor(f["pixel_values"]) for f in features])
+        if ernie:
+            batch["position_ids"] = (torch.arange(n) + (max_length - n)).expand(len(features), -1).contiguous()
+        return batch
+
+    return collate
+
+
+def evaluate(model, test, labels, device, tails=None, collate=None):
     """Entity F1 (seqeval) and mean token loss on the test split."""
     was_training = model.training
     model.eval(); y_true, y_pred, losses = [], [], []
     with torch.no_grad():
-        for b in DataLoader(test, batch_size=8):
+        for b in DataLoader(test, batch_size=8, collate_fn=collate):
             b = {k: v.to(device) for k, v in b.items()}
             out = model(**b)
             losses.append(out.loss.item())
@@ -200,7 +226,7 @@ def evaluate_windows(model, windows, gold, labels, device):
 
 def run(ds, model_path, seed, steps, lr, batch_size, device, eval_at=(), paper=False, micro_batch=16, stride=None,
         family="layoutlmv3", extrapolation=False, max_length=512, extend_positions=False, sdpa=False,
-        gradient_checkpointing=False):
+        gradient_checkpointing=False, dynamic_padding=False):
     torch.manual_seed(seed); np.random.seed(seed)
     labels = ds["train"].features["ner_tags"].feature.names
     if family == "ernie-layout":
@@ -211,13 +237,18 @@ def run(ds, model_path, seed, steps, lr, batch_size, device, eval_at=(), paper=F
     else:
         processor = LayoutLMv3Processor.from_pretrained("microsoft/layoutlmv3-base", apply_ocr=False)
     cols = ds["train"].column_names
+    collate = None
     if stride is None:
-        train = ds["train"].map(lambda e: encode(processor, e, paper, max_length=max_length), batched=True,
+        dyn = dynamic_padding
+        train = ds["train"].map(lambda e: encode(processor, e, paper, max_length=max_length, dynamic=dyn), batched=True,
                                 remove_columns=cols)
-        test = ds["test"].map(lambda e: encode(processor, e, paper, max_length=max_length), batched=True,
+        test = ds["test"].map(lambda e: encode(processor, e, paper, max_length=max_length, dynamic=dyn), batched=True,
                               remove_columns=cols)
         tails = truncated_tags(processor, ds["test"], labels, max_length) if paper else None
-        score = lambda m: evaluate(m, test, labels, device, tails)  # noqa: E731
+        if dynamic_padding:
+            tok = processor.tokenizer
+            collate = make_dynamic_collate(tok.pad_token_id, tok.padding_side, max_length, family == "ernie-layout")
+        score = lambda m: evaluate(m, test, labels, device, tails, collate)  # noqa: E731
     else:  # --long_docs window: long documents become overlapping windows in training and evaluation
         train = ds["train"].map(lambda e, i: add_window_index(processor, e, i, paper, stride), batched=True,
                                 with_indices=True, remove_columns=cols).remove_columns(["doc", "word_ids"])
@@ -225,7 +256,11 @@ def run(ds, model_path, seed, steps, lr, batch_size, device, eval_at=(), paper=F
                               with_indices=True, remove_columns=cols)
         gold = ds["test"]["ner_tags"]
         score = lambda m: evaluate_windows(m, test, gold, labels, device)  # noqa: E731
-    train.set_format("torch"); test.set_format("torch")
+    if collate is None:
+        train.set_format("torch"); test.set_format("torch")
+    else:  # ragged sequences: only the images become tensors here, the rest is padded per batch by `collate`
+        for split in (train, test):
+            split.set_format("torch", columns=["pixel_values"], output_all_columns=True)
     if family != "ernie-layout":
         model = LayoutLMv3ForTokenClassification.from_pretrained(
             model_path, num_labels=len(labels), id2label=dict(enumerate(labels)),
@@ -242,7 +277,8 @@ def run(ds, model_path, seed, steps, lr, batch_size, device, eval_at=(), paper=F
     g = torch.Generator().manual_seed(seed)
     accum = max(1, batch_size // micro_batch) if paper else 1
     assert batch_size % accum == 0
-    loader = DataLoader(train, batch_size=batch_size // accum, shuffle=True, generator=g, drop_last=paper)
+    loader = DataLoader(train, batch_size=batch_size // accum, shuffle=True, generator=g, drop_last=paper,
+                        collate_fn=collate)
     opt = torch.optim.AdamW(model.parameters(), lr=lr)
     sched = get_linear_schedule_with_warmup(opt, int(0.1 * steps), steps)
     # Learning curve (--eval_at): evaluation runs under no_grad in eval mode and uses no random numbers, so the
@@ -304,6 +340,9 @@ def main():
     ap.add_argument("--sdpa", action="store_true",
                     help="--family layoutlmv3: run attention through SDPA (same results, much less memory)")
     ap.add_argument("--gradient_checkpointing", action="store_true", help="recompute layer activations in backward")
+    ap.add_argument("--dynamic_padding", action="store_true",
+                    help="pad each batch to its longest document instead of to --max_length (same results, less time "
+                         "and memory for short documents; not with --long_docs window)")
     ap.add_argument("--max_length", type=int, default=512,
                     help="tokens per sequence; above 512 needs --extrapolation (ERNIE-Layout) or --extend_positions "
                          "(LayoutLMv3)")
@@ -311,6 +350,8 @@ def main():
     a = ap.parse_args()
     if a.max_length > 512 and not (a.extrapolation or a.extend_positions):
         ap.error("--max_length above 512 needs --extrapolation or --extend_positions")
+    if a.dynamic_padding and a.long_docs == "window":
+        ap.error("--dynamic_padding is for the truncate / extended-position settings (windows are 512 tokens)")
     if a.max_length != 512 and a.long_docs == "window":
         ap.error("--long_docs window uses 512-token windows")
     if a.extrapolation and a.family != "ernie-layout":
@@ -325,7 +366,7 @@ def main():
                               long_docs=a.long_docs, window_stride=a.window_stride if a.long_docs == "window" else None,
                               family=a.family, extrapolation=a.extrapolation, max_length=a.max_length,
                               extend_positions=a.extend_positions, sdpa=a.sdpa,
-                              gradient_checkpointing=a.gradient_checkpointing, **hp,
+                              gradient_checkpointing=a.gradient_checkpointing, dynamic_padding=a.dynamic_padding, **hp,
                               dataset="nielsr/funsd-layoutlmv3" if a.task == "funsd" else "naver-clova-ix/cord-v2")
         tracker.outputs["results"] = os.path.abspath(a.out) if a.out else None
         res = finetune(a, hp, tracker)
@@ -345,7 +386,7 @@ def finetune(a, hp, tracker):
                         micro_batch=a.micro_batch, stride=a.window_stride if a.long_docs == "window" else None,
                         family=a.family, extrapolation=a.extrapolation, max_length=a.max_length,
                         extend_positions=a.extend_positions, sdpa=a.sdpa,
-                        gradient_checkpointing=a.gradient_checkpointing, **hp)
+                        gradient_checkpointing=a.gradient_checkpointing, dynamic_padding=a.dynamic_padding, **hp)
         f1s.append(f1)
         if curve:
             curves[s] = curve
