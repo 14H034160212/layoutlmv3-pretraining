@@ -206,6 +206,8 @@ def run(ds, model_path, seed, steps, lr, batch_size, device, eval_at=(), paper=F
     if family == "ernie-layout":
         from layoutlmv3_pretraining import ernie_layout
         processor, model, _ = ernie_layout.load(len(labels), model_path, extrapolation=extrapolation)
+        if extend_positions:
+            ernie_layout.extend_position_embeddings(model, max_length)
     else:
         processor = LayoutLMv3Processor.from_pretrained("microsoft/layoutlmv3-base", apply_ocr=False)
     cols = ds["train"].column_names
@@ -298,7 +300,7 @@ def main():
     ap.add_argument("--extrapolation", action="store_true",
                     help="--family ernie-layout: the port's RoPE extrapolation model (set_config_for_extrapolation)")
     ap.add_argument("--extend_positions", action="store_true",
-                    help="--family layoutlmv3: tile the 1D position embeddings to --max_length (Longformer-style copy)")
+                    help="tile the pretrained 1D position embeddings to --max_length (Longformer-style copy)")
     ap.add_argument("--sdpa", action="store_true",
                     help="--family layoutlmv3: run attention through SDPA (same results, much less memory)")
     ap.add_argument("--gradient_checkpointing", action="store_true", help="recompute layer activations in backward")
@@ -307,8 +309,6 @@ def main():
                          "(LayoutLMv3)")
     ap.add_argument("--tags", nargs="*", default=[], help="free-form tags for experiments/registry.jsonl")
     a = ap.parse_args()
-    if a.extend_positions and a.family != "layoutlmv3":
-        ap.error("--extend_positions is for --family layoutlmv3 (ERNIE-Layout: --extrapolation)")
     if a.max_length > 512 and not (a.extrapolation or a.extend_positions):
         ap.error("--max_length above 512 needs --extrapolation or --extend_positions")
     if a.max_length != 512 and a.long_docs == "window":

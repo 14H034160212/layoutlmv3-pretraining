@@ -124,6 +124,31 @@ def use_index_select_relative_bias(model):
     return model
 
 
+def extend_position_embeddings(model, max_length: int, period: int = 512):
+    """Give ERNIE-Layout 1D position embeddings for `max_length` text tokens by tiling the pretrained ones: position i
+    uses the pretrained row i mod `period` (the 512 positions a 512-token input uses). The port numbers text positions
+    from 0 without a padding offset, and its tokenizer pads on the left, so a short document padded to a multiple of
+    512 sees the same rows as when padded to 512. The port's own resize_position_embeddings adds random rows instead."""
+    import torch
+    from torch import nn
+
+    emb = next(m for m in model.modules() if type(m).__name__ == "ErnieLayoutEmbeddings")
+    old = emb.position_embeddings.weight.data
+    if max_length <= old.shape[0]:
+        return model
+    index = torch.arange(max_length, device=old.device) % period
+    new = nn.Embedding(max_length, old.shape[1]).to(old.device, old.dtype)
+    new.weight.data = old[index].clone()
+    emb.position_embeddings = new
+    emb.register_buffer("position_ids", torch.arange(max_length, device=old.device).expand((1, -1)), persistent=False)
+    for m in model.modules():
+        if hasattr(m, "config"):
+            m.config.max_position_embeddings = max_length
+        if type(m).__name__ == "ErnieLayoutModel":
+            m.embeddings.position_ids = emb.position_ids
+    return model
+
+
 def load(num_labels: int, path: str = DEFAULT_PATH, extrapolation: bool = False, use_sdpa: bool = False):
     """Return (processor, model, tokenizer) for token classification with `num_labels` classes. `use_sdpa` sets the
     port's `use_flash_attn`, which runs attention through torch's scaled_dot_product_attention."""

@@ -107,6 +107,8 @@ def main():
         if family == "ernie":
             proc, model, tok = ernie_layout.load(7, extrapolation=method.startswith("ernie-extrap"),
                                                  use_sdpa=method == "ernie-extrap-sdpa")
+            if method == "ernie-poscopy":
+                ernie_layout.extend_position_embeddings(model, max(a.lengths))
         else:
             proc, tok = v3_proc, v3_proc.tokenizer
             model = LayoutLMv3ForTokenClassification.from_pretrained("microsoft/layoutlmv3-base", num_labels=7)

@@ -468,6 +468,18 @@ Measured on an A100 with a 15 GB per-process cap (`torch.cuda.set_per_process_me
 
 **Inference, peak activation memory.** 512-token windows (`--long_docs window`) stay flat at about 0.34 GB (LayoutLMv3) and 0.28 GB (ERNIE-Layout) up to 4096 tokens; only the time grows with the number of windows. A single long sequence grows with the square of the length. ERNIE-Layout's RoPE extrapolation with the port's one-hot relative biases needs 4.4 GB at 2048 tokens and did not fit at 4096; with index-select biases it needs 0.9 GB at 2048 and 2.7 GB at 4096. LayoutLMv3 with tiled positions needs 1.6 / 5.3 GB at 2048 / 4096, and 1.0 / 3.7 GB with `--sdpa`.
 
+**Inference, total memory (weights + activations), fp16, one document, each setting in its own process** (`results/long_docs/inference_memory_v3_*.json`):
+
+| document tokens | 512 | 1024 | 2048 | 4096 |
+|---|---:|---:|---:|---:|
+| LayoutLMv3 (transformers attention) | 0.81 GB | 1.09 GB | 2.06 GB | 5.77 GB |
+| LayoutLMv3, tiled positions, `--sdpa` | 0.69 GB | 0.78 GB | 1.49 GB | 4.15 GB |
+| LayoutLMv3, 512-token windows | 0.81 GB | 0.82 GB | 0.82 GB | 0.82 GB |
+| ERNIE-Layout, tiled positions (`--extend_positions`) | 1.33 GB | 1.50 GB | 2.06 GB | 4.19 GB |
+| ERNIE-Layout, 512-token windows | 1.32 GB | 1.33 GB | 1.33 GB | 1.33 GB |
+
+With `--sdpa`, LayoutLMv3 at 1024 tokens needs less memory than transformers' attention at 512, and 2048 tokens add about 0.7 GB.
+
 **Training (fine-tuning), peak memory, fp16:**
 
 | | 1024, batch 2 | 2048, batch 2 | 4096, batch 1 | 4096, batch 2 |
