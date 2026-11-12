@@ -34,21 +34,57 @@ DEFAULTS = {"funsd": dict(steps=1000, lr=1e-5, batch_size=2), "cord": dict(steps
 PAPER = {"funsd": dict(steps=1000, lr=1e-5, batch_size=16), "cord": dict(steps=1000, lr=5e-5, batch_size=64)}
 
 
-def encode(processor, examples, first_subword_only=False):
+def encode(processor, examples, first_subword_only=False, stride=None):
+    """Encode examples; with `stride`, a document longer than 512 tokens becomes several overlapping windows
+    (`stride` tokens of overlap) instead of being truncated, each with the full page image."""
     images = [im.convert("RGB") for im in examples["image"]]
+    windows = dict(stride=stride, return_overflowing_tokens=True) if stride is not None else {}
     enc = processor(images, examples["tokens"], boxes=examples["bboxes"], word_labels=examples["ner_tags"],
-                    truncation=True, padding="max_length", max_length=512)
+                    truncation=True, padding="max_length", max_length=512, **windows)
     if first_subword_only:  # the tokenizer's own rule misses some words (e.g. "\u2610"/"\u2611" split in 2 tokens)
+        counts = None
+        if stride is not None:  # sub-tokens per word in the whole document, to find windows that start inside a word
+            counts = [subword_counts(processor, t, b) for t, b in zip(examples["tokens"], examples["bboxes"])]
         for i, labels in enumerate(enc["labels"]):
             prev = None
+            first = None
+            if counts is not None:
+                first = window_first_subwords(enc.word_ids(i), counts[enc["overflow_to_sample_mapping"][i]])
             for j, w in enumerate(enc.word_ids(i)):
-                if w is None or w == prev:
-                    labels[j] = -100
+                if w is None or w == prev or (first is not None and j not in first):
+                    labels[j] = -100  # a window can start inside a word: its first sub-token is in the previous one
                 elif labels[j] == -100:
                     raise ValueError(f"first sub-token of word {w} has no label")
                 if w is not None:
                     prev = w
     return enc
+
+
+def subword_counts(processor, tokens, boxes):
+    """Number of sub-tokens of each word when the whole document is tokenized."""
+    counts = [0] * len(tokens)
+    for w in processor.tokenizer(tokens, boxes=boxes, truncation=False).word_ids():
+        if w is not None:
+            counts[w] += 1
+    return counts
+
+
+def window_first_subwords(word_ids, counts):
+    """Positions in one window that hold the first sub-token of their word. A window can start inside a word; that
+    word's first sub-token is then in the previous window, so the word only counts here if all its sub-tokens are."""
+    in_window = {}
+    for w in word_ids:
+        if w is not None:
+            in_window[w] = in_window.get(w, 0) + 1
+    first, prev = set(), None
+    for j, w in enumerate(word_ids):
+        if w is not None and w != prev:
+            starts_inside = prev is None and in_window[w] < counts[w]
+            if not starts_inside:
+                first.add(j)
+        if w is not None:
+            prev = w
+    return first
 
 
 def truncated_tags(processor, split, names):
@@ -118,14 +154,67 @@ def evaluate(model, test, labels, device, tails=None):
     return f1_score(y_true, y_pred), float(np.mean(losses))
 
 
-def run(ds, model_path, seed, steps, lr, batch_size, device, eval_at=(), paper=False, micro_batch=16):
+MODEL_INPUTS = ("input_ids", "attention_mask", "bbox", "pixel_values", "labels")
+
+
+def add_window_index(processor, examples, indices, paper, stride):
+    """encode() with windows, plus each window's document index and word ids (-1 for special and padding tokens)."""
+    enc = encode(processor, examples, paper, stride)
+    enc["doc"] = [indices[i] for i in enc["overflow_to_sample_mapping"]]
+    enc["word_ids"] = [[-1 if w is None else w for w in enc.word_ids(i)] for i in range(len(enc["input_ids"]))]
+    del enc["overflow_to_sample_mapping"]
+    return enc
+
+
+def evaluate_windows(model, windows, gold, labels, device):
+    """Entity F1 over every word of every document, from overlapping windows. Each word takes the prediction of the
+    window in which its first sub-token is farthest from the window's edges (the SQuAD doc_stride rule)."""
+    was_training = model.training
+    model.eval(); best, losses = {}, []  # (doc, word) -> (context, label id)
+    with torch.no_grad():
+        for b in DataLoader(windows, batch_size=8):
+            inputs = {k: b[k].to(device) for k in MODEL_INPUTS}
+            out = model(**inputs)
+            losses.append(out.loss.item())
+            pred = out.logits.argmax(-1).cpu().tolist()
+            for p, l, wids, doc in zip(pred, b["labels"].tolist(), b["word_ids"].tolist(), b["doc"].tolist()):
+                content = [j for j, w in enumerate(wids) if w >= 0]
+                lo, hi = content[0], content[-1]
+                for j in content:
+                    if l[j] == -100:  # only first sub-tokens carry a label (--protocol strict/paper)
+                        continue
+                    context = min(j - lo, hi - j)
+                    key = (doc, wids[j])
+                    if key not in best or context > best[key][0]:
+                        best[key] = (context, p[j])
+    y_true, y_pred = [], []
+    for doc, tags in enumerate(gold):
+        missing = [w for w in range(len(tags)) if (doc, w) not in best]
+        assert not missing, f"document {doc}: no window holds the first sub-token of words {missing[:5]}"
+        y_true.append([labels[t] for t in tags])
+        y_pred.append([labels[best[(doc, w)][1]] for w in range(len(tags))])
+    if was_training:
+        model.train()
+    return f1_score(y_true, y_pred), float(np.mean(losses))
+
+
+def run(ds, model_path, seed, steps, lr, batch_size, device, eval_at=(), paper=False, micro_batch=16, stride=None):
     torch.manual_seed(seed); np.random.seed(seed)
     labels = ds["train"].features["ner_tags"].feature.names
     processor = LayoutLMv3Processor.from_pretrained("microsoft/layoutlmv3-base", apply_ocr=False)
     cols = ds["train"].column_names
-    train = ds["train"].map(lambda e: encode(processor, e, paper), batched=True, remove_columns=cols)
-    test = ds["test"].map(lambda e: encode(processor, e, paper), batched=True, remove_columns=cols)
-    tails = truncated_tags(processor, ds["test"], labels) if paper else None
+    if stride is None:
+        train = ds["train"].map(lambda e: encode(processor, e, paper), batched=True, remove_columns=cols)
+        test = ds["test"].map(lambda e: encode(processor, e, paper), batched=True, remove_columns=cols)
+        tails = truncated_tags(processor, ds["test"], labels) if paper else None
+        score = lambda m: evaluate(m, test, labels, device, tails)  # noqa: E731
+    else:  # --long_docs window: long documents become overlapping windows in training and evaluation
+        train = ds["train"].map(lambda e, i: add_window_index(processor, e, i, paper, stride), batched=True,
+                                with_indices=True, remove_columns=cols).remove_columns(["doc", "word_ids"])
+        test = ds["test"].map(lambda e, i: add_window_index(processor, e, i, paper, stride), batched=True,
+                              with_indices=True, remove_columns=cols)
+        gold = ds["test"]["ner_tags"]
+        score = lambda m: evaluate_windows(m, test, gold, labels, device)  # noqa: E731
     train.set_format("torch"); test.set_format("torch")
     model = LayoutLMv3ForTokenClassification.from_pretrained(
         model_path, num_labels=len(labels), id2label=dict(enumerate(labels)),
@@ -140,7 +229,7 @@ def run(ds, model_path, seed, steps, lr, batch_size, device, eval_at=(), paper=F
     # training trajectory and the final F1 are the same as without it.
     curve, window = [], []
     if 0 in eval_at:
-        f1, loss = evaluate(model, test, labels, device, tails)
+        f1, loss = score(model)
         curve.append({"step": 0, "train_loss": None, "test_loss": round(loss, 4), "test_f1": round(f1, 4)})
     model.train(); step = 0; micro = 0
     while step < steps:
@@ -152,13 +241,13 @@ def run(ds, model_path, seed, steps, lr, batch_size, device, eval_at=(), paper=F
                 continue
             opt.step(); sched.step(); opt.zero_grad(); step += 1
             if step in eval_at and step < steps:
-                f1, tl = evaluate(model, test, labels, device, tails)
+                f1, tl = score(model)
                 curve.append({"step": step, "train_loss": round(float(np.mean(window)), 4),
                               "test_loss": round(tl, 4), "test_f1": round(f1, 4)})
                 window = []
             if step >= steps:
                 break
-    f1, tl = evaluate(model, test, labels, device, tails)
+    f1, tl = score(model)
     if eval_at:
         curve.append({"step": steps, "train_loss": round(float(np.mean(window)), 4) if window else None,
                       "test_loss": round(tl, 4), "test_f1": round(f1, 4)})
@@ -180,13 +269,21 @@ def main():
     ap.add_argument("--micro_batch", type=int, default=16, help="--protocol paper: per-forward batch (accumulation)")
     ap.add_argument("--eval_at", type=int, nargs="*", default=[],
                     help="also evaluate at these fine-tuning steps (0 = before training) and save the learning curve")
+    ap.add_argument("--long_docs", choices=["truncate", "window"], default="truncate",
+                    help="truncate: cut documents at 512 tokens (all results so far); window: split long documents into "
+                         "overlapping 512-token windows for training and evaluation and score every word "
+                         "(needs --protocol strict or paper)")
+    ap.add_argument("--window_stride", type=int, default=128, help="--long_docs window: tokens of overlap")
     ap.add_argument("--tags", nargs="*", default=[], help="free-form tags for experiments/registry.jsonl")
     a = ap.parse_args()
+    if a.long_docs == "window" and a.protocol == "legacy":
+        ap.error("--long_docs window needs --protocol strict or paper (one label per word)")
     base_hp = PAPER if a.protocol == "paper" else DEFAULTS
     hp = {k: getattr(a, k) if getattr(a, k) is not None else v for k, v in base_hp[a.task].items()}
     out_dir = os.path.dirname(os.path.abspath(a.out)) if a.out else None
     with RunTracker(f"finetune_{a.task}", a, tags=a.tags) as tracker:
-        tracker.config.update(task=a.task, model=a.model, seeds=a.seeds, protocol=a.protocol, micro_batch=a.micro_batch, **hp,
+        tracker.config.update(task=a.task, model=a.model, seeds=a.seeds, protocol=a.protocol, micro_batch=a.micro_batch,
+                              long_docs=a.long_docs, window_stride=a.window_stride if a.long_docs == "window" else None, **hp,
                               dataset="nielsr/funsd-layoutlmv3" if a.task == "funsd" else "naver-clova-ix/cord-v2")
         tracker.outputs["results"] = os.path.abspath(a.out) if a.out else None
         res = finetune(a, hp, tracker)
@@ -203,7 +300,7 @@ def finetune(a, hp, tracker):
     f1s, curves = [], {}
     for s in a.seeds:
         f1, curve = run(ds, a.model, s, device=device, eval_at=set(a.eval_at), paper=a.protocol != "legacy",
-                        micro_batch=a.micro_batch, **hp)
+                        micro_batch=a.micro_batch, stride=a.window_stride if a.long_docs == "window" else None, **hp)
         f1s.append(f1)
         if curve:
             curves[s] = curve
@@ -214,7 +311,7 @@ def finetune(a, hp, tracker):
         tracker.log({"seed": s, f"{a.task}/f1": f1})
         tracker.metrics.setdefault("per_seed", {})[s] = round(f1s[-1], 4)
         print(json.dumps({"seed": s, "f1": round(f1s[-1], 4)}), flush=True)
-    res = {"task": a.task, "model": a.model, "protocol": a.protocol, **hp, "seeds": a.seeds, "f1": [round(f, 4) for f in f1s],
+    res = {"task": a.task, "model": a.model, "protocol": a.protocol, "long_docs": a.long_docs, **hp, "seeds": a.seeds, "f1": [round(f, 4) for f in f1s],
            "mean": round(float(np.mean(f1s)), 4),
            "std": round(float(np.std(f1s, ddof=1)), 4) if len(f1s) > 1 else 0.0,
            "minutes": round((time.time() - t0) / 60, 1)}
