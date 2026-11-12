@@ -199,7 +199,7 @@ def evaluate_windows(model, windows, gold, labels, device):
 
 
 def run(ds, model_path, seed, steps, lr, batch_size, device, eval_at=(), paper=False, micro_batch=16, stride=None,
-        family="layoutlmv3", extrapolation=False, max_length=512):
+        family="layoutlmv3", extrapolation=False, max_length=512, extend_positions=False):
     torch.manual_seed(seed); np.random.seed(seed)
     labels = ds["train"].features["ner_tags"].feature.names
     if family == "ernie-layout":
@@ -227,6 +227,9 @@ def run(ds, model_path, seed, steps, lr, batch_size, device, eval_at=(), paper=F
         model = LayoutLMv3ForTokenClassification.from_pretrained(
             model_path, num_labels=len(labels), id2label=dict(enumerate(labels)),
             label2id={l: i for i, l in enumerate(labels)})
+        if extend_positions:
+            from layoutlmv3_pretraining.long_docs import extend_position_embeddings
+            extend_position_embeddings(model.layoutlmv3, max_length)
     model = model.to(device)
     g = torch.Generator().manual_seed(seed)
     accum = max(1, batch_size // micro_batch) if paper else 1
@@ -288,12 +291,17 @@ def main():
                          "(src/layoutlmv3_pretraining/ernie_layout.py; needs the port on PYTHONPATH or ERNIE_LAYOUT_PYTORCH)")
     ap.add_argument("--extrapolation", action="store_true",
                     help="--family ernie-layout: the port's RoPE extrapolation model (set_config_for_extrapolation)")
+    ap.add_argument("--extend_positions", action="store_true",
+                    help="--family layoutlmv3: tile the 1D position embeddings to --max_length (Longformer-style copy)")
     ap.add_argument("--max_length", type=int, default=512,
-                    help="tokens per sequence; above 512 only with --extrapolation (the other models have 512 positions)")
+                    help="tokens per sequence; above 512 needs --extrapolation (ERNIE-Layout) or --extend_positions "
+                         "(LayoutLMv3)")
     ap.add_argument("--tags", nargs="*", default=[], help="free-form tags for experiments/registry.jsonl")
     a = ap.parse_args()
-    if a.max_length > 512 and not a.extrapolation:
-        ap.error("--max_length above 512 needs --extrapolation")
+    if a.extend_positions and a.family != "layoutlmv3":
+        ap.error("--extend_positions is for --family layoutlmv3 (ERNIE-Layout: --extrapolation)")
+    if a.max_length > 512 and not (a.extrapolation or a.extend_positions):
+        ap.error("--max_length above 512 needs --extrapolation or --extend_positions")
     if a.max_length != 512 and a.long_docs == "window":
         ap.error("--long_docs window uses 512-token windows")
     if a.extrapolation and a.family != "ernie-layout":
@@ -306,7 +314,8 @@ def main():
     with RunTracker(f"finetune_{a.task}", a, tags=a.tags) as tracker:
         tracker.config.update(task=a.task, model=a.model, seeds=a.seeds, protocol=a.protocol, micro_batch=a.micro_batch,
                               long_docs=a.long_docs, window_stride=a.window_stride if a.long_docs == "window" else None,
-                              family=a.family, extrapolation=a.extrapolation, max_length=a.max_length, **hp,
+                              family=a.family, extrapolation=a.extrapolation, max_length=a.max_length,
+                              extend_positions=a.extend_positions, **hp,
                               dataset="nielsr/funsd-layoutlmv3" if a.task == "funsd" else "naver-clova-ix/cord-v2")
         tracker.outputs["results"] = os.path.abspath(a.out) if a.out else None
         res = finetune(a, hp, tracker)
@@ -324,7 +333,8 @@ def finetune(a, hp, tracker):
     for s in a.seeds:
         f1, curve = run(ds, a.model, s, device=device, eval_at=set(a.eval_at), paper=a.protocol != "legacy",
                         micro_batch=a.micro_batch, stride=a.window_stride if a.long_docs == "window" else None,
-                        family=a.family, extrapolation=a.extrapolation, max_length=a.max_length, **hp)
+                        family=a.family, extrapolation=a.extrapolation, max_length=a.max_length,
+                        extend_positions=a.extend_positions, **hp)
         f1s.append(f1)
         if curve:
             curves[s] = curve
@@ -335,7 +345,8 @@ def finetune(a, hp, tracker):
         tracker.log({"seed": s, f"{a.task}/f1": f1})
         tracker.metrics.setdefault("per_seed", {})[s] = round(f1s[-1], 4)
         print(json.dumps({"seed": s, "f1": round(f1s[-1], 4)}), flush=True)
-    res = {"task": a.task, "model": a.model, "family": a.family, "extrapolation": a.extrapolation, "max_length": a.max_length,
+    res = {"task": a.task, "model": a.model, "family": a.family, "extrapolation": a.extrapolation,
+           "extend_positions": a.extend_positions, "max_length": a.max_length,
            "protocol": a.protocol, "long_docs": a.long_docs, **hp, "seeds": a.seeds, "f1": [round(f, 4) for f in f1s],
            "mean": round(float(np.mean(f1s)), 4),
            "std": round(float(np.std(f1s, ddof=1)), 4) if len(f1s) > 1 else 0.0,

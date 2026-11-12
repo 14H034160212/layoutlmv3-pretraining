@@ -84,3 +84,33 @@ def test_windows_cover_every_word_and_oracle_scores_one(processor):
     assert len(tails[0]) > 0
     f1_truncated, _ = ft.evaluate(OracleModel(), truncated, LABELS, "cpu", tails)
     assert f1_truncated < 1.0
+
+
+def test_extend_position_embeddings_keeps_short_inputs_and_runs_long_ones():
+    from transformers import LayoutLMv3Config, LayoutLMv3Model
+
+    from layoutlmv3_pretraining.long_docs import extend_position_embeddings
+
+    torch.manual_seed(0)
+    cfg = LayoutLMv3Config(num_hidden_layers=2, hidden_size=96, coordinate_size=16, shape_size=16, num_attention_heads=4,
+                           intermediate_size=128, visual_embed=False, max_position_embeddings=34)  # 32 text positions
+    model = LayoutLMv3Model(cfg).eval()
+
+    def inputs(n):
+        ids = torch.randint(5, 100, (1, n))
+        bbox = torch.randint(0, 500, (1, n, 4))
+        bbox[..., 2:] += bbox[..., :2]
+        return {"input_ids": ids, "bbox": bbox}
+
+    short = inputs(20)
+    with torch.no_grad():
+        before = model(**short).last_hidden_state
+    old = model.embeddings.position_embeddings.weight.detach().clone()
+    extend_position_embeddings(model, 80)
+    new = model.embeddings.position_embeddings.weight
+    assert new.shape[0] == 82 and model.config.max_position_embeddings == 82
+    assert torch.equal(new[:34], old)                     # pretrained rows unchanged
+    assert torch.equal(new[34:66], old[2:34])             # the 32 real positions repeated
+    with torch.no_grad():
+        assert torch.equal(model(**short).last_hidden_state, before)
+        assert model(**inputs(80)).last_hidden_state.shape == (1, 80, 96)

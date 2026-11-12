@@ -75,15 +75,10 @@ def full_sequence(processor, words, boxes, image, length, keys):
 
 
 def tile_position_embeddings(model, length):
-    """LayoutLMv3 with 1D position embeddings tiled to `length` (+2 for the padding offset)."""
-    emb = model.layoutlmv3.embeddings
-    old = emb.position_embeddings.weight.data
-    n = length + 2
-    new = torch.nn.Embedding(n, old.shape[1], padding_idx=emb.position_embeddings.padding_idx).to(old)
-    reps = (n + old.shape[0] - 1) // old.shape[0]
-    new.weight.data = old.repeat(reps, 1)[:n].clone()
-    emb.position_embeddings = new
-    model.config.max_position_embeddings = n
+    """LayoutLMv3 with 1D position embeddings tiled to `length` text tokens (as --extend_positions)."""
+    from layoutlmv3_pretraining.long_docs import extend_position_embeddings
+
+    extend_position_embeddings(model.layoutlmv3, length)
     return model
 
 
