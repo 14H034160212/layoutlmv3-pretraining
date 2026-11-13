@@ -322,13 +322,17 @@ def run(ds, model_path, seed, steps, lr, batch_size, device, eval_at=(), paper=F
         curve.append({"step": steps, "train_loss": round(float(np.mean(window)), 4) if window else None,
                       "test_loss": round(tl, 4), "test_f1": round(f1, 4)})
     if eval_flex:
-        curve.append({"flex": compare_flex(model, test, labels, device, tails, collate)})
+        curve.append({"flex": compare_attention(model, test, labels, device, tails, collate)})
     return f1, curve
 
 
-def compare_flex(model, test, labels, device, tails, collate):
-    """Evaluate the trained model with its own attention, then with FlexAttention: F1, agreement, time, peak memory."""
-    from layoutlmv3_pretraining.long_docs import use_flex_attention
+def compare_attention(model, test, labels, device, tails, collate, names=("lut", "chunked", "flex")):
+    """Evaluate the trained model with its own attention, then re-patched with each of `names` (all exact): F1,
+    token-level agreement with the first evaluation, time and peak memory."""
+    from layoutlmv3_pretraining import long_docs
+
+    patch = {"sdpa": long_docs.use_sdpa_attention, "lut": long_docs.use_lut_sdpa_attention,
+             "chunked": long_docs.use_chunked_sdpa_attention, "flex": long_docs.use_flex_attention}
 
     def timed(m):
         preds = []
@@ -338,12 +342,13 @@ def compare_flex(model, test, labels, device, tails, collate):
         torch.cuda.synchronize()
         return f1, preds, time.time() - t, torch.cuda.max_memory_allocated() / 2**30
 
-    f1_a, pa, sec_a, mem_a = timed(model)
-    f1_b, pb, sec_b, mem_b = timed(use_flex_attention(model))
-    agree = float(np.mean([x == y for x, y in zip(pa, pb)]))
-    return {"f1": round(f1_a, 4), "f1_flex": round(f1_b, 4), "token_agreement": round(agree, 6),
-            "eval_seconds": round(sec_a, 1), "eval_seconds_flex": round(sec_b, 1),
-            "eval_peak_gib": round(mem_a, 2), "eval_peak_gib_flex": round(mem_b, 2)}
+    f1, ref, sec, mem = timed(model)
+    out = {"trained": {"f1": round(f1, 4), "eval_seconds": round(sec, 1), "eval_peak_gib": round(mem, 2)}}
+    for name in names:
+        f1, preds, sec, mem = timed(patch[name](model))
+        out[name] = {"f1": round(f1, 4), "token_agreement": round(float(np.mean([a == b for a, b in zip(ref, preds)])), 6),
+                     "eval_seconds": round(sec, 1), "eval_peak_gib": round(mem, 2)}
+    return out
 
 
 def main():
@@ -390,7 +395,7 @@ def main():
                     help="tokens per sequence; above 512 needs --extrapolation (ERNIE-Layout) or --extend_positions "
                          "(LayoutLMv3)")
     ap.add_argument("--eval_flex", action="store_true",
-                    help="LayoutLMv3: after training, evaluate again with FlexAttention and compare (fixed padding)")
+                    help="LayoutLMv3: after training, evaluate again with lut, chunked and flex attention and compare (fixed padding)")
     ap.add_argument("--tags", nargs="*", default=[], help="free-form tags for experiments/registry.jsonl")
     a = ap.parse_args()
     if a.sdpa and a.attention == "eager":
@@ -442,7 +447,8 @@ def finetune(a, hp, tracker):
             print(json.dumps({"seed": s, "curve": curve}), flush=True)
             for point in curve:  # W&B steps must increase, so the fine-tuning step is logged as a metric
                 if "flex" in point:
-                    tracker.log({"seed": s, **{f"flex/{k}": v for k, v in point["flex"].items()}})
+                    tracker.log({"seed": s, **{f"attention/{name}/{k}": v for name, r in point["flex"].items()
+                                               for k, v in r.items()}})
                     continue
                 tracker.log({"seed": s, "finetune_step": point["step"],
                              **{f"curve/{k}": v for k, v in point.items() if k != "step" and v is not None}})
