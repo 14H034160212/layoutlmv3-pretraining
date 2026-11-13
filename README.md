@@ -481,6 +481,15 @@ So there is **no gain**, which is what you should expect from 129 documents. The
 
 No pre-training: the 1D position embeddings are tiled and the model is fine-tuned on the task (2,000 steps, batch 2). For LayoutLMv3, reading the whole page at 2048 tokens beats windows by 1.6 points (paired t-test p = 0.007, 5/5 seeds) and truncation by 24 points, and takes 1.5x the time of truncation. For ERNIE-Layout, 2048 tokens and windows are tied (+0.10, p = 0.28), both 22 points above truncation. ERNIE-Layout times are noisy: the GPU was shared with other jobs.
 
+**Convergence** (`--eval_at`, seeds 1-3, test F1 during fine-tuning; `results/long_docs/vrdu_curve_v3_*.json`, W&B [truncate](https://forge.coreweave.com/wandb/qbao775/layoutlmv3-pretraining/runs/472zb7o1), [2048](https://forge.coreweave.com/wandb/qbao775/layoutlmv3-pretraining/runs/wvh50gmg)). Tiled positions do not slow convergence: the training loss falls at the same rate, and the test F1 is higher at every checkpoint. 2048 tokens pass truncation's final F1 by step 500 and plateau at about step 1500. The 2048 run here trains with `--attention lut`.
+
+| step | 250 | 500 | 750 | 1000 | 1500 | 2000 |
+|---|---:|---:|---:|---:|---:|---:|
+| truncate at 512, test F1 | 19.0 | 53.7 | 63.5 | 66.3 | 68.0 | 68.3 |
+| tiled positions, 2048, test F1 | 36.3 | 74.1 | 84.8 | 89.5 | 92.1 | 92.7 |
+| truncate at 512, train loss | 1.142 | 0.308 | 0.126 | 0.067 | 0.030 | 0.020 |
+| tiled positions, 2048, train loss | 1.103 | 0.289 | 0.119 | 0.070 | 0.033 | 0.023 |
+
 **Which attention to use** (all exact, same outputs as transformers' attention; `--attention`, `long_docs.py`, tests in `tests/test_long_docs_memory.py`). Inference, LayoutLMv3 with tiled positions, fp16, one document, total memory / time, each setting in its own process (`results/long_docs/inference_memory_v3-poscopy-*.json`):
 
 | document tokens | 512 | 2048 | 4096 | 8192 |
