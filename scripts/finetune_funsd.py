@@ -167,8 +167,8 @@ def make_dynamic_collate(pad_id, side, max_length, ernie):
     return collate
 
 
-def evaluate(model, test, labels, device, tails=None, collate=None):
-    """Entity F1 (seqeval) and mean token loss on the test split."""
+def evaluate(model, test, labels, device, tails=None, collate=None, preds=None):
+    """Entity F1 (seqeval) and mean token loss on the test split. Appends each labelled token's prediction to `preds`."""
     was_training = model.training
     model.eval(); y_true, y_pred, losses = [], [], []
     with torch.no_grad():
@@ -180,6 +180,8 @@ def evaluate(model, test, labels, device, tails=None, collate=None):
             for p, l in zip(pred.cpu().tolist(), b["labels"].cpu().tolist()):
                 keep = [(labels[pi], labels[li]) for pi, li in zip(p, l) if li != -100]
                 y_pred.append([x for x, _ in keep]); y_true.append([y for _, y in keep])
+                if preds is not None:
+                    preds.extend(x for x, _ in keep)
     if tails is not None:  # words beyond the 512-token limit: gold tags kept, predicted "O"
         assert len(tails) == len(y_true)
         for t, p, tail in zip(y_true, y_pred, tails):
@@ -235,7 +237,7 @@ def evaluate_windows(model, windows, gold, labels, device):
 
 def run(ds, model_path, seed, steps, lr, batch_size, device, eval_at=(), paper=False, micro_batch=16, stride=None,
         family="layoutlmv3", extrapolation=False, max_length=512, extend_positions=False, sdpa=False,
-        gradient_checkpointing=False, dynamic_padding=False, position_mode="copy"):
+        gradient_checkpointing=False, dynamic_padding=False, position_mode="copy", eval_flex=False):
     torch.manual_seed(seed); np.random.seed(seed)
     labels = ds["train"].features["ner_tags"].feature.names
     if family == "ernie-layout":
@@ -277,9 +279,12 @@ def run(ds, model_path, seed, steps, lr, batch_size, device, eval_at=(), paper=F
         if extend_positions:
             from layoutlmv3_pretraining.long_docs import extend_position_embeddings
             extend_position_embeddings(model.layoutlmv3, max_length, mode=position_mode)
-    from layoutlmv3_pretraining.long_docs import checkpoint_encoder_layers, use_sdpa_attention
-    if sdpa and family != "ernie-layout":
-        use_sdpa_attention(model)
+    from layoutlmv3_pretraining import long_docs
+    attention = "sdpa" if sdpa is True else (sdpa or "eager")   # sdpa: False / True / an --attention name
+    if attention != "eager" and family != "ernie-layout":
+        {"sdpa": long_docs.use_sdpa_attention, "lut": long_docs.use_lut_sdpa_attention,
+         "chunked": long_docs.use_chunked_sdpa_attention, "flex": long_docs.use_flex_attention}[attention](model)
+    checkpoint_encoder_layers = long_docs.checkpoint_encoder_layers
     if gradient_checkpointing:
         checkpoint_encoder_layers(model)
     model = model.to(device)
@@ -316,7 +321,29 @@ def run(ds, model_path, seed, steps, lr, batch_size, device, eval_at=(), paper=F
     if eval_at:
         curve.append({"step": steps, "train_loss": round(float(np.mean(window)), 4) if window else None,
                       "test_loss": round(tl, 4), "test_f1": round(f1, 4)})
+    if eval_flex:
+        curve.append({"flex": compare_flex(model, test, labels, device, tails, collate)})
     return f1, curve
+
+
+def compare_flex(model, test, labels, device, tails, collate):
+    """Evaluate the trained model with its own attention, then with FlexAttention: F1, agreement, time, peak memory."""
+    from layoutlmv3_pretraining.long_docs import use_flex_attention
+
+    def timed(m):
+        preds = []
+        evaluate(m, test.select(range(min(8, len(test)))), labels, device, None, collate)  # warm-up (compiles flex)
+        torch.cuda.synchronize(); torch.cuda.reset_peak_memory_stats(); t = time.time()
+        f1, _ = evaluate(m, test, labels, device, tails, collate, preds)
+        torch.cuda.synchronize()
+        return f1, preds, time.time() - t, torch.cuda.max_memory_allocated() / 2**30
+
+    f1_a, pa, sec_a, mem_a = timed(model)
+    f1_b, pb, sec_b, mem_b = timed(use_flex_attention(model))
+    agree = float(np.mean([x == y for x, y in zip(pa, pb)]))
+    return {"f1": round(f1_a, 4), "f1_flex": round(f1_b, 4), "token_agreement": round(agree, 6),
+            "eval_seconds": round(sec_a, 1), "eval_seconds_flex": round(sec_b, 1),
+            "eval_peak_gib": round(mem_a, 2), "eval_peak_gib_flex": round(mem_b, 2)}
 
 
 def main():
@@ -348,6 +375,11 @@ def main():
                     help="tile the pretrained 1D position embeddings to --max_length (Longformer-style copy)")
     ap.add_argument("--sdpa", action="store_true",
                     help="--family layoutlmv3: run attention through SDPA (same results, much less memory)")
+    ap.add_argument("--attention", choices=["eager", "sdpa", "lut", "chunked", "flex"], default="eager",
+                    help="--family layoutlmv3 attention, all exact: sdpa (shared bias), lut (sdpa with an fp16 bias "
+                         "gathered from lookup tables: fastest, least memory on V100), chunked (sdpa over 512-query "
+                         "blocks: near-flat memory, slower), flex (FlexAttention: flat memory; A100+, Triton has no "
+                         "V100 tensor-core path). --sdpa is --attention sdpa")
     ap.add_argument("--gradient_checkpointing", action="store_true", help="recompute layer activations in backward")
     ap.add_argument("--position_mode", choices=["copy", "interpolate"], default="copy",
                     help="--extend_positions: repeat the pretrained positions (copy) or resample them linearly")
@@ -357,8 +389,12 @@ def main():
     ap.add_argument("--max_length", type=int, default=512,
                     help="tokens per sequence; above 512 needs --extrapolation (ERNIE-Layout) or --extend_positions "
                          "(LayoutLMv3)")
+    ap.add_argument("--eval_flex", action="store_true",
+                    help="LayoutLMv3: after training, evaluate again with FlexAttention and compare (fixed padding)")
     ap.add_argument("--tags", nargs="*", default=[], help="free-form tags for experiments/registry.jsonl")
     a = ap.parse_args()
+    if a.sdpa and a.attention == "eager":
+        a.attention = "sdpa"
     if a.max_length > 512 and not (a.extrapolation or a.extend_positions):
         ap.error("--max_length above 512 needs --extrapolation or --extend_positions")
     if a.dynamic_padding and a.long_docs == "window":
@@ -376,7 +412,7 @@ def main():
         tracker.config.update(task=a.task, model=a.model, seeds=a.seeds, protocol=a.protocol, micro_batch=a.micro_batch,
                               long_docs=a.long_docs, window_stride=a.window_stride if a.long_docs == "window" else None,
                               family=a.family, extrapolation=a.extrapolation, max_length=a.max_length,
-                              extend_positions=a.extend_positions, sdpa=a.sdpa,
+                              extend_positions=a.extend_positions, sdpa=a.sdpa, attention=a.attention,
                               gradient_checkpointing=a.gradient_checkpointing, dynamic_padding=a.dynamic_padding,
                               position_mode=a.position_mode, **hp,
                               dataset={"funsd": "nielsr/funsd-layoutlmv3", "cord": "naver-clova-ix/cord-v2", "vrdu": VRDU_DIR}[a.task])
@@ -397,14 +433,17 @@ def finetune(a, hp, tracker):
         f1, curve = run(ds, a.model, s, device=device, eval_at=set(a.eval_at), paper=a.protocol != "legacy",
                         micro_batch=a.micro_batch, stride=a.window_stride if a.long_docs == "window" else None,
                         family=a.family, extrapolation=a.extrapolation, max_length=a.max_length,
-                        extend_positions=a.extend_positions, sdpa=a.sdpa,
+                        extend_positions=a.extend_positions, sdpa=a.attention if a.attention != "eager" else False,
                         gradient_checkpointing=a.gradient_checkpointing, dynamic_padding=a.dynamic_padding,
-                        position_mode=a.position_mode, **hp)
+                        position_mode=a.position_mode, eval_flex=a.eval_flex, **hp)
         f1s.append(f1)
         if curve:
             curves[s] = curve
             print(json.dumps({"seed": s, "curve": curve}), flush=True)
             for point in curve:  # W&B steps must increase, so the fine-tuning step is logged as a metric
+                if "flex" in point:
+                    tracker.log({"seed": s, **{f"flex/{k}": v for k, v in point["flex"].items()}})
+                    continue
                 tracker.log({"seed": s, "finetune_step": point["step"],
                              **{f"curve/{k}": v for k, v in point.items() if k != "step" and v is not None}})
         tracker.log({"seed": s, f"{a.task}/f1": f1})

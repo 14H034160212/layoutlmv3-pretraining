@@ -1,0 +1,47 @@
+{
+ "cap_gb": 15.0,
+ "gpu": "NVIDIA A100-SXM4-80GB",
+ "torch": "2.6.0+cu124",
+ "rows": [
+  {
+   "method": "v3-poscopy",
+   "variant": "sdpa+ckpt",
+   "length": 512,
+   "precision": "fp16",
+   "batch_size": 2,
+   "peak_gib": 2.48,
+   "seconds_per_step": 0.111,
+   "fits_cap": true
+  },
+  {
+   "method": "v3-poscopy",
+   "variant": "sdpa+ckpt",
+   "length": 1024,
+   "precision": "fp16",
+   "batch_size": 2,
+   "peak_gib": 3.47,
+   "seconds_per_step": 0.207,
+   "fits_cap": true
+  },
+  {
+   "method": "v3-poscopy",
+   "variant": "sdpa+ckpt",
+   "length": 2048,
+   "precision": "fp16",
+   "batch_size": 2,
+   "peak_gib": 6.3,
+   "seconds_per_step": 0.416,
+   "fits_cap": true
+  },
+  {
+   "method": "v3-poscopy",
+   "variant": "sdpa+ckpt",
+   "length": 4096,
+   "precision": "fp16",
+   "batch_size": 2,
+   "peak_gib": null,
+   "fits_cap": false,
+   "status": "OOM above 15.0 GB cap"
+  }
+ ]
+}

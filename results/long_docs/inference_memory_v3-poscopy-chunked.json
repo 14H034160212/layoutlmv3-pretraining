@@ -1,0 +1,52 @@
+{
+ "cap_gb": 15.0,
+ "stride": 128,
+ "gpu": "NVIDIA A100-SXM4-80GB",
+ "results": [
+  {
+   "method": "v3-poscopy-chunked",
+   "doc_tokens": 512,
+   "weights_mib": 479,
+   "peak_activation_mib": 218,
+   "total_mib": 697,
+   "seconds": 0.045,
+   "status": "ok"
+  },
+  {
+   "method": "v3-poscopy-chunked",
+   "doc_tokens": 1024,
+   "weights_mib": 479,
+   "peak_activation_mib": 247,
+   "total_mib": 726,
+   "seconds": 0.029,
+   "status": "ok"
+  },
+  {
+   "method": "v3-poscopy-chunked",
+   "doc_tokens": 2048,
+   "weights_mib": 479,
+   "peak_activation_mib": 295,
+   "total_mib": 774,
+   "seconds": 0.176,
+   "status": "ok"
+  },
+  {
+   "method": "v3-poscopy-chunked",
+   "doc_tokens": 4096,
+   "weights_mib": 479,
+   "peak_activation_mib": 397,
+   "total_mib": 877,
+   "seconds": 0.556,
+   "status": "ok"
+  },
+  {
+   "method": "v3-poscopy-chunked",
+   "doc_tokens": 8192,
+   "weights_mib": 479,
+   "peak_activation_mib": 599,
+   "total_mib": 1079,
+   "seconds": 2.116,
+   "status": "ok"
+  }
+ ]
+}

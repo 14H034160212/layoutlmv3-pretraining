@@ -3,6 +3,8 @@
 Compares ways of handling documents longer than 512 tokens:
   * window:       512-token windows with --stride overlap, run one at a time (LayoutLMv3 or ERNIE-Layout)
   * ernie-extrap: ERNIE-Layout with the port's RoPE extrapolation, the whole document in one sequence
+  * v3-poscopy-lut: as v3-poscopy, SDPA with the shared bias gathered in fp16 from per-distance tables
+  * v3-poscopy-chunked: as v3-poscopy, with SDPA over 512-query blocks (only a block's bias at a time)
   * v3-poscopy-flex: as v3-poscopy, with attention in FlexAttention (relative biases computed inside the kernel)
   * v3-poscopy:   LayoutLMv3 with its 1D position embeddings tiled to the document length (memory only: the copied
                   positions are untrained, so no accuracy claim is made for it)
@@ -117,6 +119,14 @@ def main():
                 from layoutlmv3_pretraining.long_docs import use_sdpa_attention
 
                 use_sdpa_attention(model)
+            if method == "v3-poscopy-lut":
+                from layoutlmv3_pretraining.long_docs import use_lut_sdpa_attention
+
+                use_lut_sdpa_attention(model)
+            if method == "v3-poscopy-chunked":
+                from layoutlmv3_pretraining.long_docs import use_chunked_sdpa_attention
+
+                use_chunked_sdpa_attention(model)
             if method == "v3-poscopy-flex":
                 from layoutlmv3_pretraining.long_docs import extend_position_embeddings, use_flex_attention
 

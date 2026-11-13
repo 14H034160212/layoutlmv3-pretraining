@@ -80,3 +80,61 @@ def test_flex_attention_matches_eager_outputs_and_gradients():
     assert g1.keys() == g2.keys()            # the bias tables get no gradient in either (transformers#50636)
     for name in g1:
         assert torch.allclose(g1[name], g2[name], atol=1e-5, rtol=1e-4), name
+
+
+def test_chunked_sdpa_attention_matches_eager_outputs_and_gradients():
+    from layoutlmv3_pretraining.long_docs import use_chunked_sdpa_attention
+
+    eager = tiny_layoutlmv3()
+    chunked = use_chunked_sdpa_attention(copy.deepcopy(eager), chunk=7)   # 24 tokens -> 4 query blocks, the last short
+    ids = torch.randint(5, 100, (2, 24))
+    bbox = torch.randint(0, 500, (2, 24, 4))
+    bbox[..., 2:] += bbox[..., :2]
+    mask = torch.ones(2, 24, dtype=torch.long)
+    mask[1, 15:] = 0
+    outs = []
+    for model in (eager, chunked):
+        model.train()                                    # train mode exercises the per-block checkpointing
+        out = model(input_ids=ids, bbox=bbox, attention_mask=mask).last_hidden_state
+        (out * mask[..., None]).sum().backward()
+        outs.append((out.detach(), {n: p.grad.clone() for n, p in model.named_parameters() if p.grad is not None}))
+    (o1, g1), (o2, g2) = outs
+    valid = mask.bool()
+    assert torch.allclose(o1[valid], o2[valid], atol=1e-5, rtol=1e-4)
+    assert g1.keys() == g2.keys()
+    for name in g1:
+        assert torch.allclose(g1[name], g2[name], atol=1e-5, rtol=1e-4), name
+    chunked.eval()
+    with torch.no_grad():                                # eval path (no checkpointing) gives the same outputs
+        assert torch.allclose(chunked(input_ids=ids, bbox=bbox, attention_mask=mask).last_hidden_state[valid],
+                              o1[valid], atol=1e-5, rtol=1e-4)
+
+
+def test_lut_sdpa_attention_matches_eager_outputs_and_gradients():
+    from layoutlmv3_pretraining.long_docs import use_lut_sdpa_attention
+
+    eager = tiny_layoutlmv3()
+    lut = use_lut_sdpa_attention(copy.deepcopy(eager))
+    ids = torch.randint(5, 100, (2, 24))
+    bbox = torch.randint(0, 500, (2, 24, 4))
+    bbox[..., 2:] += bbox[..., :2]
+    mask = torch.ones(2, 24, dtype=torch.long)
+    mask[1, 15:] = 0
+    outs = []
+    for model in (eager, lut):
+        model.train()
+        out = model(input_ids=ids, bbox=bbox, attention_mask=mask).last_hidden_state
+        (out * mask[..., None]).sum().backward()
+        outs.append((out.detach(), {n: p.grad.clone() for n, p in model.named_parameters() if p.grad is not None}))
+    (o1, g1), (o2, g2) = outs
+    valid = mask.bool()
+    assert torch.allclose(o1[valid], o2[valid], atol=1e-5, rtol=1e-4)
+    assert g1.keys() == g2.keys()
+    for name in g1:
+        assert torch.allclose(g1[name], g2[name], atol=1e-5, rtol=1e-4), name
+    with torch.no_grad():                                # a second, different input rebuilds the bias
+        bbox2 = bbox.flip(1)
+        lut.eval(); eager.eval()
+        assert torch.allclose(lut(input_ids=ids, bbox=bbox2, attention_mask=mask).last_hidden_state[valid],
+                              eager(input_ids=ids, bbox=bbox2, attention_mask=mask).last_hidden_state[valid],
+                              atol=1e-5, rtol=1e-4)
