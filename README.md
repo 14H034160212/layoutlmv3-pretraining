@@ -547,6 +547,15 @@ Windows, and tiled positions at 1024 or 2048, recover nearly all of the 0.7 poin
 
 ## ERNIE-Layout (experimental)
 
+**Image preprocessing and existing checkpoints** (`--ernie_images`, `--eval_both_images`, `results/long_docs/funsd_ernie_images_train_*.json`, FUNSD strict, seeds 1-3, [W&B readme](https://forge.coreweave.com/wandb/qbao775/layoutlmv3-pretraining/runs/twwolvqo), [W&B paddle](https://forge.coreweave.com/wandb/qbao775/layoutlmv3-pretraining/runs/8dazg18k)). The port README's preprocessing normalises the image twice (NormXU/ERNIE-Layout-Pytorch#26). A model must be evaluated with the preprocessing it was fine-tuned with:
+
+| fine-tuned with | evaluated with PaddleNLP preprocessing (0-255) | evaluated with the README's (normalised twice) |
+|---|---:|---:|
+| README's (normalised twice) | 82.78 ± 0.75 | **84.19 ± 0.67** |
+| PaddleNLP (0-255) | **84.55 ± 0.31** | 83.84 ± 0.51 |
+
+Switching an existing checkpoint to the corrected preprocessing without fine-tuning again costs 1.4 points (paired p = 0.03). Fine-tuning again with the corrected preprocessing gives +0.35 over the old setup on FUNSD (p = 0.49, not significant with 3 seeds; FUNSD depends little on the image).
+
 [ERNIE-Layout](https://arxiv.org/abs/2210.06155) can be fine-tuned, evaluated on long documents and continued-pretrained here through the unofficial PyTorch port [NormXU/ERNIE-Layout-Pytorch](https://github.com/NormXU/ERNIE-Layout-Pytorch) (weights `Norm/ERNIE-Layout-Pytorch`). Clone the port and set `ERNIE_LAYOUT_PYTORCH=<path>`; it also needs `einops` and `sentencepiece`. `src/layoutlmv3_pretraining/ernie_layout.py` makes it work with current transformers and fixes two things:
 
 - **Image preprocessing.** The visual backbone normalises 0-255 RGB pixels itself, as PaddleNLP feeds them. The port's README normalises to [-1, 1] first, which leaves every page with nearly the same visual features (NormXU/ERNIE-Layout-Pytorch#26). Here images stay in 0-255.

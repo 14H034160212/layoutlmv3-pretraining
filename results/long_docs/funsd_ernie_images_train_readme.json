@@ -1,0 +1,64 @@
+{
+ "task": "funsd",
+ "model": "Norm/ERNIE-Layout-Pytorch",
+ "family": "ernie-layout",
+ "extrapolation": false,
+ "extend_positions": false,
+ "max_length": 512,
+ "protocol": "strict",
+ "long_docs": "truncate",
+ "steps": 1000,
+ "lr": 1e-05,
+ "batch_size": 2,
+ "seeds": [
+  1,
+  2,
+  3
+ ],
+ "f1": [
+  0.8459,
+  0.8457,
+  0.8342
+ ],
+ "mean": 0.8419,
+ "std": 0.0067,
+ "minutes": 5.6,
+ "curves": {
+  "1": [
+   {
+    "flex": {
+     "eval_paddle": {
+      "f1": 0.8357
+     },
+     "eval_readme": {
+      "f1": 0.8459
+     }
+    }
+   }
+  ],
+  "2": [
+   {
+    "flex": {
+     "eval_paddle": {
+      "f1": 0.8269
+     },
+     "eval_readme": {
+      "f1": 0.8457
+     }
+    }
+   }
+  ],
+  "3": [
+   {
+    "flex": {
+     "eval_paddle": {
+      "f1": 0.8208
+     },
+     "eval_readme": {
+      "f1": 0.8342
+     }
+    }
+   }
+  ]
+ }
+}

@@ -24,7 +24,7 @@ from datasets import Image as ImageFeature
 from seqeval.metrics import f1_score
 from torch.utils.data import DataLoader
 from layoutlmv3_pretraining.tracking import RunTracker, write_json_atomic
-from transformers import (LayoutLMv3ForTokenClassification, LayoutLMv3Processor,
+from transformers import (LayoutLMv3ForTokenClassification, LayoutLMv3ImageProcessor, LayoutLMv3Processor,
                           get_linear_schedule_with_warmup)
 
 DEFAULTS = {"funsd": dict(steps=1000, lr=1e-5, batch_size=2), "cord": dict(steps=1000, lr=5e-5, batch_size=4),
@@ -237,12 +237,15 @@ def evaluate_windows(model, windows, gold, labels, device):
 
 def run(ds, model_path, seed, steps, lr, batch_size, device, eval_at=(), paper=False, micro_batch=16, stride=None,
         family="layoutlmv3", extrapolation=False, max_length=512, extend_positions=False, sdpa=False,
-        gradient_checkpointing=False, dynamic_padding=False, position_mode="copy", eval_flex=False):
+        gradient_checkpointing=False, dynamic_padding=False, position_mode="copy", eval_flex=False,
+        ernie_images="paddle", eval_both_images=False):
     torch.manual_seed(seed); np.random.seed(seed)
     labels = ds["train"].features["ner_tags"].feature.names
     if family == "ernie-layout":
         from layoutlmv3_pretraining import ernie_layout
         processor, model, _ = ernie_layout.load(len(labels), model_path, extrapolation=extrapolation)
+        if ernie_images == "readme":   # the port README's preprocessing: rescaled and normalised before the backbone
+            processor.image_processor = LayoutLMv3ImageProcessor(apply_ocr=False)
         if extend_positions:
             ernie_layout.extend_position_embeddings(model, max_length, mode=position_mode)
     else:
@@ -323,7 +326,29 @@ def run(ds, model_path, seed, steps, lr, batch_size, device, eval_at=(), paper=F
                       "test_loss": round(tl, 4), "test_f1": round(f1, 4)})
     if eval_flex:
         curve.append({"flex": compare_attention(model, test, labels, device, tails, collate)})
+    if eval_both_images:
+        curve.append({"flex": compare_image_preprocessing(processor, model, ds, labels, device, paper, max_length,
+                                                         tails, collate)})
     return f1, curve
+
+
+def compare_image_preprocessing(processor, model, ds, labels, device, paper, max_length, tails, collate):
+    """ERNIE-Layout: evaluate the trained model with the PaddleNLP preprocessing (0-255 pixels) and with the port
+    README's (LayoutLMv3ImageProcessor defaults, normalised again by the backbone). Only the pixels differ."""
+    from layoutlmv3_pretraining import ernie_layout
+
+    trained_with = processor.image_processor
+    out = {}
+    for name, image_processor in (("paddle", ernie_layout.image_processor()),
+                                  ("readme", LayoutLMv3ImageProcessor(apply_ocr=False))):
+        processor.image_processor = image_processor
+        test = ds["test"].map(lambda e: encode(processor, e, paper, max_length=max_length), batched=True,
+                              remove_columns=ds["test"].column_names)
+        test.set_format("torch")
+        f1, _ = evaluate(model, test, labels, device, tails, collate)
+        out[f"eval_{name}"] = {"f1": round(f1, 4)}
+    processor.image_processor = trained_with
+    return out
 
 
 def compare_attention(model, test, labels, device, tails, collate, names=("lut", "chunked", "flex")):
@@ -396,6 +421,11 @@ def main():
                          "(LayoutLMv3)")
     ap.add_argument("--eval_flex", action="store_true",
                     help="LayoutLMv3: after training, evaluate again with lut, chunked and flex attention and compare (fixed padding)")
+    ap.add_argument("--ernie_images", choices=["paddle", "readme"], default="paddle",
+                    help="ERNIE-Layout training image preprocessing: paddle (0-255, as PaddleNLP) or readme (the port "
+                         "README's LayoutLMv3ImageProcessor defaults, which normalise the image twice)")
+    ap.add_argument("--eval_both_images", action="store_true",
+                    help="ERNIE-Layout: after training, evaluate with both image preprocessings")
     ap.add_argument("--tags", nargs="*", default=[], help="free-form tags for experiments/registry.jsonl")
     a = ap.parse_args()
     if a.sdpa and a.attention == "eager":
@@ -440,7 +470,8 @@ def finetune(a, hp, tracker):
                         family=a.family, extrapolation=a.extrapolation, max_length=a.max_length,
                         extend_positions=a.extend_positions, sdpa=a.attention if a.attention != "eager" else False,
                         gradient_checkpointing=a.gradient_checkpointing, dynamic_padding=a.dynamic_padding,
-                        position_mode=a.position_mode, eval_flex=a.eval_flex, **hp)
+                        position_mode=a.position_mode, eval_flex=a.eval_flex, ernie_images=a.ernie_images,
+                        eval_both_images=a.eval_both_images, **hp)
         f1s.append(f1)
         if curve:
             curves[s] = curve
