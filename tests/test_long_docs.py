@@ -114,3 +114,25 @@ def test_extend_position_embeddings_keeps_short_inputs_and_runs_long_ones():
     with torch.no_grad():
         assert torch.equal(model(**short).last_hidden_state, before)
         assert model(**inputs(80)).last_hidden_state.shape == (1, 80, 96)
+
+
+def test_interpolated_positions_keep_the_ends_and_stay_continuous():
+    from transformers import LayoutLMv3Config, LayoutLMv3Model
+
+    from layoutlmv3_pretraining.long_docs import extend_position_embeddings
+
+    torch.manual_seed(0)
+    cfg = LayoutLMv3Config(num_hidden_layers=1, hidden_size=96, coordinate_size=16, shape_size=16, num_attention_heads=4,
+                           intermediate_size=128, visual_embed=False, max_position_embeddings=34)
+    model = LayoutLMv3Model(cfg)
+    old = model.embeddings.position_embeddings.weight.detach().clone()
+    extend_position_embeddings(model, 64, mode="interpolate")
+    new = model.embeddings.position_embeddings.weight.detach()
+    assert new.shape[0] == 66
+    assert torch.equal(new[:2], old[:2])                              # rows before the first position untouched
+    assert torch.allclose(new[2], old[2]) and torch.allclose(new[-1], old[-1], atol=1e-6)  # ends kept
+    for j in (5, 21, 40):                                             # new position j sits at old position j * 31 / 63
+        t = j * 31 / 63
+        lo, w = int(t), t - int(t)
+        expected = old[2 + lo] * (1 - w) + old[2 + min(lo + 1, 31)] * w
+        assert torch.allclose(new[2 + j], expected, atol=1e-6), j

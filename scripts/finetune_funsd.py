@@ -235,14 +235,14 @@ def evaluate_windows(model, windows, gold, labels, device):
 
 def run(ds, model_path, seed, steps, lr, batch_size, device, eval_at=(), paper=False, micro_batch=16, stride=None,
         family="layoutlmv3", extrapolation=False, max_length=512, extend_positions=False, sdpa=False,
-        gradient_checkpointing=False, dynamic_padding=False):
+        gradient_checkpointing=False, dynamic_padding=False, position_mode="copy"):
     torch.manual_seed(seed); np.random.seed(seed)
     labels = ds["train"].features["ner_tags"].feature.names
     if family == "ernie-layout":
         from layoutlmv3_pretraining import ernie_layout
         processor, model, _ = ernie_layout.load(len(labels), model_path, extrapolation=extrapolation)
         if extend_positions:
-            ernie_layout.extend_position_embeddings(model, max_length)
+            ernie_layout.extend_position_embeddings(model, max_length, mode=position_mode)
     else:
         processor = LayoutLMv3Processor.from_pretrained("microsoft/layoutlmv3-base", apply_ocr=False)
     cols = ds["train"].column_names
@@ -276,7 +276,7 @@ def run(ds, model_path, seed, steps, lr, batch_size, device, eval_at=(), paper=F
             label2id={l: i for i, l in enumerate(labels)})
         if extend_positions:
             from layoutlmv3_pretraining.long_docs import extend_position_embeddings
-            extend_position_embeddings(model.layoutlmv3, max_length)
+            extend_position_embeddings(model.layoutlmv3, max_length, mode=position_mode)
     from layoutlmv3_pretraining.long_docs import checkpoint_encoder_layers, use_sdpa_attention
     if sdpa and family != "ernie-layout":
         use_sdpa_attention(model)
@@ -349,6 +349,8 @@ def main():
     ap.add_argument("--sdpa", action="store_true",
                     help="--family layoutlmv3: run attention through SDPA (same results, much less memory)")
     ap.add_argument("--gradient_checkpointing", action="store_true", help="recompute layer activations in backward")
+    ap.add_argument("--position_mode", choices=["copy", "interpolate"], default="copy",
+                    help="--extend_positions: repeat the pretrained positions (copy) or resample them linearly")
     ap.add_argument("--dynamic_padding", action="store_true",
                     help="pad each batch to its longest document instead of to --max_length (same results, less time "
                          "and memory for short documents; not with --long_docs window)")
@@ -375,7 +377,8 @@ def main():
                               long_docs=a.long_docs, window_stride=a.window_stride if a.long_docs == "window" else None,
                               family=a.family, extrapolation=a.extrapolation, max_length=a.max_length,
                               extend_positions=a.extend_positions, sdpa=a.sdpa,
-                              gradient_checkpointing=a.gradient_checkpointing, dynamic_padding=a.dynamic_padding, **hp,
+                              gradient_checkpointing=a.gradient_checkpointing, dynamic_padding=a.dynamic_padding,
+                              position_mode=a.position_mode, **hp,
                               dataset={"funsd": "nielsr/funsd-layoutlmv3", "cord": "naver-clova-ix/cord-v2", "vrdu": VRDU_DIR}[a.task])
         tracker.outputs["results"] = os.path.abspath(a.out) if a.out else None
         res = finetune(a, hp, tracker)
@@ -395,7 +398,8 @@ def finetune(a, hp, tracker):
                         micro_batch=a.micro_batch, stride=a.window_stride if a.long_docs == "window" else None,
                         family=a.family, extrapolation=a.extrapolation, max_length=a.max_length,
                         extend_positions=a.extend_positions, sdpa=a.sdpa,
-                        gradient_checkpointing=a.gradient_checkpointing, dynamic_padding=a.dynamic_padding, **hp)
+                        gradient_checkpointing=a.gradient_checkpointing, dynamic_padding=a.dynamic_padding,
+                        position_mode=a.position_mode, **hp)
         f1s.append(f1)
         if curve:
             curves[s] = curve

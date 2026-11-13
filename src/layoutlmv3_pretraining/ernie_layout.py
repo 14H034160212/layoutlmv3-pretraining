@@ -124,7 +124,7 @@ def use_index_select_relative_bias(model):
     return model
 
 
-def extend_position_embeddings(model, max_length: int, period: int = 512):
+def extend_position_embeddings(model, max_length: int, period: int = 512, mode: str = "copy"):
     """Give ERNIE-Layout 1D position embeddings for `max_length` text tokens by tiling the pretrained ones: position i
     uses the pretrained row i mod `period` (the 512 positions a 512-token input uses). The port numbers text positions
     from 0 without a padding offset, and its tokenizer pads on the left, so a short document padded to a multiple of
@@ -136,9 +136,13 @@ def extend_position_embeddings(model, max_length: int, period: int = 512):
     old = emb.position_embeddings.weight.data
     if max_length <= old.shape[0]:
         return model
-    index = torch.arange(max_length, device=old.device) % period
+    from .long_docs import _resize_rows
+
     new = nn.Embedding(max_length, old.shape[1]).to(old.device, old.dtype)
-    new.weight.data = old[index].clone()
+    if mode == "copy":  # row i mod period, so left-padded short documents keep their 512-token rows
+        new.weight.data = old[torch.arange(max_length, device=old.device) % period].clone()
+    else:
+        new.weight.data = _resize_rows(old[:period], max_length, mode)
     emb.position_embeddings = new
     emb.register_buffer("position_ids", torch.arange(max_length, device=old.device).expand((1, -1)), persistent=False)
     for m in model.modules():

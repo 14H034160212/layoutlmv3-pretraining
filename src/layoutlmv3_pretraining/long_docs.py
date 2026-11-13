@@ -6,7 +6,19 @@ import torch
 from torch import nn
 
 
-def extend_position_embeddings(layoutlmv3: nn.Module, max_length: int) -> nn.Module:
+def _resize_rows(rows: torch.Tensor, n: int, mode: str) -> torch.Tensor:
+    """n position rows from the pretrained `rows`: "copy" repeats them (Longformer), "interpolate" resamples them
+    linearly so positions stay continuous (position interpolation for learned absolute embeddings)."""
+    if mode == "copy":
+        reps = (n + rows.shape[0] - 1) // rows.shape[0]
+        return rows.repeat(reps, 1)[:n].clone()
+    if mode == "interpolate":
+        out = torch.nn.functional.interpolate(rows.t()[None].float(), size=n, mode="linear", align_corners=True)
+        return out[0].t().to(rows.dtype).contiguous()
+    raise ValueError(f"unknown position mode {mode!r}")
+
+
+def extend_position_embeddings(layoutlmv3: nn.Module, max_length: int, mode: str = "copy") -> nn.Module:
     """Give a LayoutLMv3Model 1D position embeddings for `max_length` text tokens by tiling the pretrained ones
     (as Longformer does for RoBERTa). Positions start after the padding index (RoBERTa style), so rows 0 ..
     padding_idx are kept and the pretrained rows after them are repeated. The relative position biases are
@@ -18,9 +30,8 @@ def extend_position_embeddings(layoutlmv3: nn.Module, max_length: int) -> nn.Mod
     if n <= old.shape[0]:
         return layoutlmv3
     real = old[offset:]
-    reps = (n - offset + real.shape[0] - 1) // real.shape[0]
     new = nn.Embedding(n, old.shape[1], padding_idx=emb.padding_idx).to(old.device, old.dtype)
-    new.weight.data = torch.cat([old[:offset], real.repeat(reps, 1)[: n - offset]]).clone()
+    new.weight.data = torch.cat([old[:offset], _resize_rows(real, n - offset, mode)]).clone()
     emb.position_embeddings = new
     emb.register_buffer("position_ids", torch.arange(n, device=old.device).expand((1, -1)), persistent=False)
     layoutlmv3.config.max_position_embeddings = n
