@@ -490,6 +490,8 @@ No pre-training: the 1D position embeddings are tiled and the model is fine-tune
 | truncate at 512, train loss | 1.142 | 0.308 | 0.126 | 0.067 | 0.030 | 0.020 |
 | tiled positions, 2048, train loss | 1.103 | 0.289 | 0.119 | 0.070 | 0.033 | 0.023 |
 
+**Copy, not interpolate** (`--position_mode interpolate`, VRDU, seeds 1-5, `results/long_docs/vrdu_*_interp2048.json`). Resampling the 512 pretrained positions linearly over 2048 is worse than repeating them: LayoutLMv3 91.81 ± 0.07 against 92.52 (-0.71, paired p < 0.001, [W&B](https://forge.coreweave.com/wandb/qbao775/layoutlmv3-pretraining/runs/8y0ugs4w)), ERNIE-Layout 91.51 ± 0.28 against 92.88 (-1.37, p = 0.002, [W&B](https://forge.coreweave.com/wandb/qbao775/layoutlmv3-pretraining/runs/5hpa6h7e)). Interpolation changes the position of every token, including those within the first 512, while copying leaves them as pretrained.
+
 **Which attention to use** (all exact, same outputs as transformers' attention; `--attention`, `long_docs.py`, tests in `tests/test_long_docs_memory.py`). Inference, LayoutLMv3 with tiled positions, fp16, one document, total memory / time, each setting in its own process (`results/long_docs/inference_memory_v3-poscopy-*.json`):
 
 | document tokens | 512 | 2048 | 4096 | 8192 |
@@ -555,6 +557,8 @@ Before the index-select change, ERNIE-Layout's extrapolation model did not fit 2
 Windows, and tiled positions at 1024 or 2048, recover nearly all of the 0.7 points that truncation loses; 2048 cannot add more on FUNSD because no document is that long. The port's extrapolation model replaces ERNIE-Layout's pretrained absolute position embeddings with RoPE, which 1,000 fine-tuning steps on FUNSD do not learn: it is not usable this way. ERNIE-Layout's lower F1 overall uses LayoutLMv3's FUNSD recipe (lr 1e-5, 1,000 steps, batch 2), not tuned for it.
 
 ## ERNIE-Layout (experimental)
+
+**Padding side** (`--ernie_padding_side`, FUNSD strict, seeds 1-5, `results/long_docs/funsd_ernie_padding_*.json`). The port's tokenizer pads on the left, so with position ids counted from 0 a short document's tokens sit at shifted positions, whereas PaddleNLP pads on the right. Switching to right padding did not help: 83.72 ± 1.01 against 84.27 ± 0.80 with the port's left padding (-0.55, paired p = 0.13; W&B [left](https://forge.coreweave.com/wandb/qbao775/layoutlmv3-pretraining/runs/p9hq7xu7), [right](https://forge.coreweave.com/wandb/qbao775/layoutlmv3-pretraining/runs/mrpm2sn9)), so the default is kept.
 
 **Image preprocessing and existing checkpoints** (`--ernie_images`, `--eval_both_images`, `results/long_docs/funsd_ernie_images_train_*.json`, FUNSD strict, seeds 1-3, [W&B readme](https://forge.coreweave.com/wandb/qbao775/layoutlmv3-pretraining/runs/twwolvqo), [W&B paddle](https://forge.coreweave.com/wandb/qbao775/layoutlmv3-pretraining/runs/8dazg18k)). The port README's preprocessing normalises the image twice (NormXU/ERNIE-Layout-Pytorch#26). A model must be evaluated with the preprocessing it was fine-tuned with:
 

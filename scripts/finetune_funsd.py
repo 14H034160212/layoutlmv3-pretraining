@@ -160,7 +160,7 @@ def make_dynamic_collate(pad_id, side, max_length, ernie):
                 rows.append(fill + seq if side == "left" else seq + fill)
             batch[key] = torch.tensor(rows)
         batch["pixel_values"] = torch.stack([torch.as_tensor(f["pixel_values"]) for f in features])
-        if ernie:
+        if ernie and side == "left":   # with right padding the positions start at 0 either way
             batch["position_ids"] = (torch.arange(n) + (max_length - n)).expand(len(features), -1).contiguous()
         return batch
 
@@ -238,12 +238,15 @@ def evaluate_windows(model, windows, gold, labels, device):
 def run(ds, model_path, seed, steps, lr, batch_size, device, eval_at=(), paper=False, micro_batch=16, stride=None,
         family="layoutlmv3", extrapolation=False, max_length=512, extend_positions=False, sdpa=False,
         gradient_checkpointing=False, dynamic_padding=False, position_mode="copy", eval_flex=False,
-        ernie_images="paddle", eval_both_images=False):
+        ernie_images="paddle", eval_both_images=False, ernie_padding_side="left"):
     torch.manual_seed(seed); np.random.seed(seed)
     labels = ds["train"].features["ner_tags"].feature.names
     if family == "ernie-layout":
         from layoutlmv3_pretraining import ernie_layout
         processor, model, _ = ernie_layout.load(len(labels), model_path, extrapolation=extrapolation)
+        # The port's tokenizer pads on the left, so with position_ids = arange(seq_len) a short document's tokens get
+        # shifted positions; PaddleNLP pads on the right, so a document always starts at position 0
+        processor.tokenizer.padding_side = ernie_padding_side
         if ernie_images == "readme":   # the port README's preprocessing: rescaled and normalised before the backbone
             processor.image_processor = LayoutLMv3ImageProcessor(apply_ocr=False)
         if extend_positions:
@@ -424,6 +427,8 @@ def main():
     ap.add_argument("--ernie_images", choices=["paddle", "readme"], default="paddle",
                     help="ERNIE-Layout training image preprocessing: paddle (0-255, as PaddleNLP) or readme (the port "
                          "README's LayoutLMv3ImageProcessor defaults, which normalise the image twice)")
+    ap.add_argument("--ernie_padding_side", choices=["left", "right"], default="left",
+                    help="ERNIE-Layout tokenizer padding side: left (the port's default) or right (PaddleNLP)")
     ap.add_argument("--eval_both_images", action="store_true",
                     help="ERNIE-Layout: after training, evaluate with both image preprocessings")
     ap.add_argument("--tags", nargs="*", default=[], help="free-form tags for experiments/registry.jsonl")
@@ -471,7 +476,7 @@ def finetune(a, hp, tracker):
                         extend_positions=a.extend_positions, sdpa=a.attention if a.attention != "eager" else False,
                         gradient_checkpointing=a.gradient_checkpointing, dynamic_padding=a.dynamic_padding,
                         position_mode=a.position_mode, eval_flex=a.eval_flex, ernie_images=a.ernie_images,
-                        eval_both_images=a.eval_both_images, **hp)
+                        eval_both_images=a.eval_both_images, ernie_padding_side=a.ernie_padding_side, **hp)
         f1s.append(f1)
         if curve:
             curves[s] = curve
