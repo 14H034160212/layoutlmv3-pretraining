@@ -1,0 +1,53 @@
+{
+ "task": "vrdu",
+ "model": "microsoft/layoutlmv3-base",
+ "family": "layoutlmv3",
+ "extrapolation": false,
+ "extend_positions": true,
+ "max_length": 2048,
+ "protocol": "strict",
+ "long_docs": "truncate",
+ "steps": 2000,
+ "lr": 3e-05,
+ "batch_size": 2,
+ "seeds": [
+  1
+ ],
+ "f1": [
+  0.9296
+ ],
+ "mean": 0.9296,
+ "std": 0.0,
+ "minutes": 38.5,
+ "curves": {
+  "1": [
+   {
+    "flex": {
+     "trained": {
+      "f1": 0.9296,
+      "eval_seconds": 108.4,
+      "eval_peak_gib": 14.75
+     },
+     "lut": {
+      "f1": 0.9296,
+      "token_agreement": 1.0,
+      "eval_seconds": 95.3,
+      "eval_peak_gib": 7.54
+     },
+     "chunked": {
+      "f1": 0.9296,
+      "token_agreement": 1.0,
+      "eval_seconds": 289.7,
+      "eval_peak_gib": 3.07
+     },
+     "flex": {
+      "f1": 0.9296,
+      "token_agreement": 1.0,
+      "eval_seconds": 330.4,
+      "eval_peak_gib": 2.04
+     }
+    }
+   }
+  ]
+ }
+}
