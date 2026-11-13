@@ -3,6 +3,7 @@
 Compares ways of handling documents longer than 512 tokens:
   * window:       512-token windows with --stride overlap, run one at a time (LayoutLMv3 or ERNIE-Layout)
   * ernie-extrap: ERNIE-Layout with the port's RoPE extrapolation, the whole document in one sequence
+  * v3-poscopy-flex: as v3-poscopy, with attention in FlexAttention (relative biases computed inside the kernel)
   * v3-poscopy:   LayoutLMv3 with its 1D position embeddings tiled to the document length (memory only: the copied
                   positions are untrained, so no accuracy claim is made for it)
 
@@ -116,6 +117,11 @@ def main():
                 from layoutlmv3_pretraining.long_docs import use_sdpa_attention
 
                 use_sdpa_attention(model)
+            if method == "v3-poscopy-flex":
+                from layoutlmv3_pretraining.long_docs import extend_position_embeddings, use_flex_attention
+
+                extend_position_embeddings(model.layoutlmv3, max(a.lengths))  # before patching: flex reads the tables
+                use_flex_attention(model)
         model = model.to(device).eval()
         weights_mib = torch.cuda.memory_allocated() / 2**20
         for length in a.lengths:
@@ -126,7 +132,7 @@ def main():
                     batches = windows(proc, words, boxes, image, a.stride, v3_keys)
                     row["windows"] = len(batches)
                 elif method.startswith("v3-poscopy"):
-                    if length > 512:
+                    if length > 512 and method != "v3-poscopy-flex":
                         tile_position_embeddings(model, length)
                     batches = full_sequence(proc, words, boxes, image, length, v3_keys)
                 else:

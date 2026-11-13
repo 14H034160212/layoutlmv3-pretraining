@@ -64,12 +64,13 @@ def build(method, length, num_labels):
 
 
 def measure(
-    method, length, batch_size, precision, steps, device="cuda", sdpa=False, ckpt=False
+    method, length, batch_size, precision, steps, device="cuda", sdpa=False, ckpt=False, flex=False
 ):
     from torch.nn.attention import SDPBackend, sdpa_kernel
 
     from layoutlmv3_pretraining.long_docs import (
         checkpoint_encoder_layers,
+        use_flex_attention,
         use_sdpa_attention,
     )
 
@@ -78,6 +79,8 @@ def measure(
     model, family = build(method, length, num_labels=7)
     if sdpa and family == "v3":
         use_sdpa_attention(model)
+    if flex and family == "v3":
+        use_flex_attention(model)
     if ckpt:  # transformers' LayoutLMv3ForTokenClassification does not support gradient_checkpointing_enable()
         checkpoint_encoder_layers(model)
     model = model.to(device).train()
@@ -119,7 +122,7 @@ def main():
         "--variants",
         nargs="+",
         default=["base"],
-        help="base, sdpa (LayoutLMv3 SDPA attention), ckpt (gradient checkpointing), sdpa+ckpt",
+        help="base, sdpa (LayoutLMv3 SDPA attention), flex (FlexAttention), ckpt (gradient checkpointing), sdpa+ckpt, flex+ckpt",
     )
     ap.add_argument("--cap_gb", type=float, default=15.0)
     ap.add_argument("--out")
@@ -131,7 +134,7 @@ def main():
         lengths = [512] if method.endswith("window") else a.lengths
         for length in lengths:
             for variant in a.variants:
-                if "sdpa" in variant and not method.startswith("v3"):
+                if ("sdpa" in variant or "flex" in variant) and not method.startswith("v3"):
                     continue
                 for precision in a.precisions:
                     for bs in a.batch_sizes:
@@ -151,6 +154,7 @@ def main():
                                 a.steps,
                                 sdpa="sdpa" in variant,
                                 ckpt="ckpt" in variant,
+                                flex="flex" in variant,
                             )
                             row.update(
                                 peak_gib=peak, seconds_per_step=sec, fits_cap=True
