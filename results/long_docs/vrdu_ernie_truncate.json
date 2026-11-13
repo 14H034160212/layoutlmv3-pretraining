@@ -1,0 +1,30 @@
+{
+ "task": "vrdu",
+ "model": "Norm/ERNIE-Layout-Pytorch",
+ "family": "ernie-layout",
+ "extrapolation": false,
+ "extend_positions": false,
+ "max_length": 512,
+ "protocol": "strict",
+ "long_docs": "truncate",
+ "steps": 2000,
+ "lr": 3e-05,
+ "batch_size": 2,
+ "seeds": [
+  1,
+  2,
+  3,
+  4,
+  5
+ ],
+ "f1": [
+  0.7095,
+  0.7075,
+  0.7111,
+  0.7089,
+  0.7066
+ ],
+ "mean": 0.7087,
+ "std": 0.0018,
+ "minutes": 42.7
+}

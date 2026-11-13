@@ -473,7 +473,13 @@ So there is **no gain**, which is what you should expect from 129 documents. The
 | tiled positions, 1024, `--sdpa --dynamic_padding` | 89.87 ± 0.13 | 26.8 | [yax56big](https://forge.coreweave.com/wandb/qbao775/layoutlmv3-pretraining/runs/yax56big) |
 | **tiled positions, 2048, `--sdpa --dynamic_padding`** | **92.52 ± 0.11** | 31.9 | [eybwos7p](https://forge.coreweave.com/wandb/qbao775/layoutlmv3-pretraining/runs/eybwos7p) |
 
-No pre-training: the 1D position embeddings are tiled and the model is fine-tuned on the task (2,000 steps, batch 2). Reading the whole page at 2048 tokens beats windows by 1.6 points and truncation by 24 points, and takes 1.5x the time of truncation.
+| ERNIE-Layout | F1 x 100 | minutes (5 seeds, train + eval) | W&B |
+|---|---:|---:|---|
+| truncate at 512 | 70.87 ± 0.18 | 42.7 | [7hwey8v6](https://forge.coreweave.com/wandb/qbao775/layoutlmv3-pretraining/runs/7hwey8v6) |
+| 512-token windows, stride 128 | 92.78 ± 0.30 | 22.4 | [4b0td6ek](https://forge.coreweave.com/wandb/qbao775/layoutlmv3-pretraining/runs/4b0td6ek) |
+| **tiled positions, 2048, `--dynamic_padding`** | **92.88 ± 0.17** | 39.8 | [ax6vuu0v](https://forge.coreweave.com/wandb/qbao775/layoutlmv3-pretraining/runs/ax6vuu0v) |
+
+No pre-training: the 1D position embeddings are tiled and the model is fine-tuned on the task (2,000 steps, batch 2). For LayoutLMv3, reading the whole page at 2048 tokens beats windows by 1.6 points (paired t-test p = 0.007, 5/5 seeds) and truncation by 24 points, and takes 1.5x the time of truncation. For ERNIE-Layout, 2048 tokens and windows are tied (+0.10, p = 0.28), both 22 points above truncation. ERNIE-Layout times are noisy: the GPU was shared with other jobs.
 
 **Which attention to use** (all exact, same outputs as transformers' attention; `--attention`, `long_docs.py`, tests in `tests/test_long_docs_memory.py`). Inference, LayoutLMv3 with tiled positions, fp16, one document, total memory / time, each setting in its own process (`results/long_docs/inference_memory_v3-poscopy-*.json`):
 
