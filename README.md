@@ -464,6 +464,30 @@ So there is **no gain**, which is what you should expect from 129 documents. The
 
 ## Long documents within a 16 GB GPU
 
+**Results on genuinely long pages: VRDU Ad-buy Forms** (`scripts/prepare_vrdu.py`; TV ad-buy forms, pages of line-item tables; test set 774 pages, median 829 tokens, 90th percentile 1,471, longest 5,105; truncation at 512 tokens drops 40.8% of the labelled words, at 1024 5.5%, at 2048 none). LayoutLMv3-base, `--protocol strict`, seeds 1-5, `results/long_docs/vrdu_*.json`:
+
+| LayoutLMv3 | F1 x 100 | minutes (5 seeds, train + eval) | W&B |
+|---|---:|---:|---|
+| truncate at 512 | 68.31 ± 0.13 | 21.5 | [rqakzlmm](https://forge.coreweave.com/wandb/qbao775/layoutlmv3-pretraining/runs/rqakzlmm) |
+| 512-token windows, stride 128 | 90.97 ± 0.65 | 25.8 | [xsm2yq39](https://forge.coreweave.com/wandb/qbao775/layoutlmv3-pretraining/runs/xsm2yq39) |
+| tiled positions, 1024, `--sdpa --dynamic_padding` | 89.87 ± 0.13 | 26.8 | [yax56big](https://forge.coreweave.com/wandb/qbao775/layoutlmv3-pretraining/runs/yax56big) |
+| **tiled positions, 2048, `--sdpa --dynamic_padding`** | **92.52 ± 0.11** | 31.9 | [eybwos7p](https://forge.coreweave.com/wandb/qbao775/layoutlmv3-pretraining/runs/eybwos7p) |
+
+No pre-training: the 1D position embeddings are tiled and the model is fine-tuned on the task (2,000 steps, batch 2). Reading the whole page at 2048 tokens beats windows by 1.6 points and truncation by 24 points, and takes 1.5x the time of truncation.
+
+**Which attention to use** (all exact, same outputs as transformers' attention; `--attention`, `long_docs.py`, tests in `tests/test_long_docs_memory.py`). Inference, LayoutLMv3 with tiled positions, fp16, one document, total memory / time, each setting in its own process (`results/long_docs/inference_memory_v3-poscopy-*.json`):
+
+| document tokens | 512 | 2048 | 4096 | 8192 |
+|---|---:|---:|---:|---:|
+| `sdpa`: one shared bias, transformers' bucketing | 0.69 GB / 36 ms | 1.49 GB / 91 ms | 4.15 GB / 251 ms | OOM |
+| **`lut`: shared bias gathered in fp16 from per-distance tables** | 0.69 GB / 35 ms | **0.80 GB / 66 ms** | **1.57 GB / 151 ms** | 4.58 GB / 484 ms |
+| `chunked`: SDPA over 512-query blocks | 0.70 GB / 45 ms | 0.77 GB / 176 ms | 0.88 GB / 556 ms | 1.08 GB / 2.1 s |
+| `flex`: FlexAttention, biases inside the kernel | 0.71 GB / 37 ms | 0.74 GB / 77 ms | 0.79 GB / 162 ms | 0.87 GB / 613 ms |
+
+Training, batch 2, fp16, peak memory / time per step (`results/long_docs/train_memory_v3_*.json`): at 2048 tokens `sdpa` 7.65 GB / 0.32 s, `lut` 7.05 GB / 0.28 s, `lut` + gradient checkpointing 3.99 GB / 0.35 s, `flex` 4.68 GB / 0.40 s; at 4096 only `lut` + checkpointing (6.71 GB / 0.70 s), `flex` (4.93 GB / 1.29 s) and `chunked` (5.99 GB / 1.95 s) fit.
+
+Most of the memory of transformers' LayoutLMv3 attention at long lengths is not the bias itself (121 MB in fp16 at 2048 tokens + 197 patches) but the fp32 n x n temporaries of the bucketing; the bucket depends only on the relative distance, so `lut` gathers from small per-distance tables instead. **On a V100 use `lut`**: it runs on PyTorch's memory-efficient SDPA kernel, which uses V100 tensor cores. FlexAttention compiles with Triton, which no longer uses tensor cores before Ampere, so its A100 speed above should not be expected on a V100. All numbers are from an A100 with a 15 GB cap and the SDPA kernels a V100 runs, not from a real V100.
+
 Measured on an A100 with a 15 GB per-process cap (`torch.cuda.set_per_process_memory_fraction`) and only the SDPA kernels a V100 runs, fp16, one document per row (`scripts/bench_inference_memory.py`, `scripts/bench_train_memory.py`, `results/long_docs/`).
 
 **Inference, peak activation memory.** 512-token windows (`--long_docs window`) stay flat at about 0.34 GB (LayoutLMv3) and 0.28 GB (ERNIE-Layout) up to 4096 tokens; only the time grows with the number of windows. A single long sequence grows with the square of the length. ERNIE-Layout's RoPE extrapolation with the port's one-hot relative biases needs 4.4 GB at 2048 tokens and did not fit at 4096; with index-select biases it needs 0.9 GB at 2048 and 2.7 GB at 4096. LayoutLMv3 with tiled positions needs 1.6 / 5.3 GB at 2048 / 4096, and 1.0 / 3.7 GB with `--sdpa`.

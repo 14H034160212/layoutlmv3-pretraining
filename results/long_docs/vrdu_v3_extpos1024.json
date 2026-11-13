@@ -1,0 +1,30 @@
+{
+ "task": "vrdu",
+ "model": "microsoft/layoutlmv3-base",
+ "family": "layoutlmv3",
+ "extrapolation": false,
+ "extend_positions": true,
+ "max_length": 1024,
+ "protocol": "strict",
+ "long_docs": "truncate",
+ "steps": 2000,
+ "lr": 3e-05,
+ "batch_size": 2,
+ "seeds": [
+  1,
+  2,
+  3,
+  4,
+  5
+ ],
+ "f1": [
+  0.8999,
+  0.8975,
+  0.899,
+  0.8972,
+  0.8998
+ ],
+ "mean": 0.8987,
+ "std": 0.0013,
+ "minutes": 26.8
+}
