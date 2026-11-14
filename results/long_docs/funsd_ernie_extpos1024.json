@@ -1,0 +1,40 @@
+{
+ "task": "funsd",
+ "model": "Norm/ERNIE-Layout-Pytorch",
+ "family": "ernie-layout",
+ "extrapolation": false,
+ "extend_positions": true,
+ "max_length": 1024,
+ "protocol": "strict",
+ "long_docs": "truncate",
+ "steps": 1000,
+ "lr": 1e-05,
+ "batch_size": 2,
+ "seeds": [
+  1,
+  2,
+  3,
+  4,
+  5,
+  6,
+  7,
+  8,
+  9,
+  10
+ ],
+ "f1": [
+  0.8575,
+  0.8446,
+  0.8423,
+  0.8354,
+  0.8418,
+  0.8421,
+  0.8507,
+  0.8467,
+  0.8397,
+  0.8435
+ ],
+ "mean": 0.8444,
+ "std": 0.0061,
+ "minutes": 64.0
+}
