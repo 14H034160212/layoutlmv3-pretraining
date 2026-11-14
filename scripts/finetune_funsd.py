@@ -167,7 +167,7 @@ def make_dynamic_collate(pad_id, side, max_length, ernie):
     return collate
 
 
-def evaluate(model, test, labels, device, tails=None, collate=None, preds=None):
+def evaluate(model, test, labels, device, tails=None, collate=None, preds=None, per_doc=None):
     """Entity F1 (seqeval) and mean token loss on the test split. Appends each labelled token's prediction to `preds`."""
     was_training = model.training
     model.eval(); y_true, y_pred, losses = [], [], []
@@ -188,6 +188,8 @@ def evaluate(model, test, labels, device, tails=None, collate=None, preds=None):
             t.extend(tail); p.extend(["O"] * len(tail))
     if was_training:
         model.train()
+    if per_doc is not None:   # (gold tags, predicted tags) of every test document, in order
+        per_doc.extend(zip(y_true, y_pred))
     return f1_score(y_true, y_pred), float(np.mean(losses))
 
 
@@ -232,13 +234,15 @@ def evaluate_windows(model, windows, gold, labels, device):
         y_pred.append([labels[best[(doc, w)][1]] for w in range(len(tags))])
     if was_training:
         model.train()
+    if per_doc is not None:   # (gold tags, predicted tags) of every test document, in order
+        per_doc.extend(zip(y_true, y_pred))
     return f1_score(y_true, y_pred), float(np.mean(losses))
 
 
 def run(ds, model_path, seed, steps, lr, batch_size, device, eval_at=(), paper=False, micro_batch=16, stride=None,
         family="layoutlmv3", extrapolation=False, max_length=512, extend_positions=False, sdpa=False,
         gradient_checkpointing=False, dynamic_padding=False, position_mode="copy", eval_flex=False,
-        ernie_images="paddle", eval_both_images=False, ernie_padding_side="left"):
+        ernie_images="paddle", eval_both_images=False, ernie_padding_side="left", dump_docs=None):
     torch.manual_seed(seed); np.random.seed(seed)
     labels = ds["train"].features["ner_tags"].feature.names
     if family == "ernie-layout":
@@ -327,6 +331,11 @@ def run(ds, model_path, seed, steps, lr, batch_size, device, eval_at=(), paper=F
     if eval_at:
         curve.append({"step": steps, "train_loss": round(float(np.mean(window)), 4) if window else None,
                       "test_loss": round(tl, 4), "test_f1": round(f1, 4)})
+    if dump_docs:
+        docs = []
+        evaluate(model, test, labels, device, tails, collate, per_doc=docs)
+        with open(dump_docs, "w") as f:
+            json.dump([{"gold": g, "pred": p} for g, p in docs], f)
     if eval_flex:
         curve.append({"flex": compare_attention(model, test, labels, device, tails, collate)})
     if eval_both_images:
@@ -427,6 +436,7 @@ def main():
     ap.add_argument("--ernie_images", choices=["paddle", "readme"], default="paddle",
                     help="ERNIE-Layout training image preprocessing: paddle (0-255, as PaddleNLP) or readme (the port "
                          "README's LayoutLMv3ImageProcessor defaults, which normalise the image twice)")
+    ap.add_argument("--dump_docs", help="write each test document's gold and predicted tags (last seed) to this JSON")
     ap.add_argument("--ernie_padding_side", choices=["left", "right"], default="left",
                     help="ERNIE-Layout tokenizer padding side: left (the port's default) or right (PaddleNLP)")
     ap.add_argument("--eval_both_images", action="store_true",
@@ -476,7 +486,8 @@ def finetune(a, hp, tracker):
                         extend_positions=a.extend_positions, sdpa=a.attention if a.attention != "eager" else False,
                         gradient_checkpointing=a.gradient_checkpointing, dynamic_padding=a.dynamic_padding,
                         position_mode=a.position_mode, eval_flex=a.eval_flex, ernie_images=a.ernie_images,
-                        eval_both_images=a.eval_both_images, ernie_padding_side=a.ernie_padding_side, **hp)
+                        eval_both_images=a.eval_both_images, ernie_padding_side=a.ernie_padding_side,
+                        dump_docs=a.dump_docs, **hp)
         f1s.append(f1)
         if curve:
             curves[s] = curve

@@ -1,0 +1,5 @@
+FUNSD test, 50 docs, pretrained ERNIE-Layout (no fine-tuning), last hidden state of real text tokens, left vs right padding to 512
+mean cosine over docs 0.9369; min doc 0.8977
+  docs with 0-199 tokens (padding 313-512): 10 docs, mean cosine 0.9287
+  docs with 200-349 tokens (padding 163-312): 21 docs, mean cosine 0.9307
+  docs with 350-512 tokens (padding 0-162): 19 docs, mean cosine 0.9481

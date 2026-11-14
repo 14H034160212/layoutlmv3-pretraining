@@ -1,0 +1,7 @@
+VRDU test, LayoutLMv3, seed 1, positions to 2048: copy vs interpolate, entity F1 by page length (tokens)
+                 pages    n    copy  interp   diff
+         <= 512 tokens  175   85.02   83.46  -1.57
+              513-1024  338   91.98   90.09  -1.88
+             1025-2048  232   94.03   93.78  -0.24
+    > 2048 (truncated)   29    0.00    0.00  +0.00
+                   all  774   92.60   91.56  -1.04

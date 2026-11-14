@@ -1,0 +1,12 @@
+== LayoutLMv3 (rows 2..513): 512 positions, dim 768
+cosine(pos i, pos i+1): mean 0.891, 10th pct 0.862, min 0.151 (at i=0)
+cosine(pos 0, pos k) for k=1,8,64,256,511: 0.151, 0.079, 0.051, 0.022, 0.216
+interpolated vs original at the same index 0..511: mean cosine 0.278 (index 100: 0.192, index 300: 0.085)
+each interpolated row vs its nearest original row: mean cosine 0.991, min 0.880
+vector norm: original mean 1.766, interpolated mean 1.731, interpolated min 1.593
+== ERNIE-Layout: 512 positions, dim 768
+cosine(pos i, pos i+1): mean 0.813, 10th pct 0.752, min 0.578 (at i=1)
+cosine(pos 0, pos k) for k=1,8,64,256,511: 0.694, 0.680, 0.496, 0.366, 0.327
+interpolated vs original at the same index 0..511: mean cosine 0.455 (index 100: 0.520, index 300: 0.310)
+each interpolated row vs its nearest original row: mean cosine 0.984, min 0.904
+vector norm: original mean 2.172, interpolated mean 2.103, interpolated min 1.330
