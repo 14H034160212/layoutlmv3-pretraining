@@ -481,6 +481,19 @@ So there is **no gain**, which is what you should expect from 129 documents. The
 
 No pre-training: the 1D position embeddings are tiled and the model is fine-tuned on the task (2,000 steps, batch 2). For LayoutLMv3, reading the whole page at 2048 tokens beats windows by 1.6 points (paired t-test p = 0.007, 5/5 seeds) and truncation by 24 points, and takes 1.5x the time of truncation. For ERNIE-Layout, 2048 tokens and windows are tied (+0.10, p = 0.28), both 22 points above truncation. ERNIE-Layout times are noisy: the GPU was shared with other jobs.
 
+**Three real long-document datasets** (5 seeds each, `--protocol strict`, every field word scored; truncation is the LayoutLMv3 / ERNIE-Layout baseline):
+
+| dataset (labelled words lost at 512) | model | truncate at 512 | 512-token windows | full page (positions extended) |
+|---|---|---:|---:|---:|
+| VRDU Ad-buy, order forms (40.8%) | LayoutLMv3 | 68.31 | 90.97 | **92.52** (2048) |
+| | ERNIE-Layout | 70.87 | 92.78 | **92.88** (2048) |
+| VRDU Registration, government forms (52.1%) | LayoutLMv3 | 63.96 | **88.65** | 87.82 (1024) |
+| | ERNIE-Layout | 57.07 | **90.18** | 89.45 (1024) |
+| RealKIE FCC, real invoices with line items (58.1%) | LayoutLMv3 | 42.46 | 66.39 | **67.57** (2048) |
+| | ERNIE-Layout | 46.09 | 66.74 | **66.99** (2048) |
+
+Both ways of reading the whole page beat truncation by 20 to 33 points on every dataset and model (all 5/5 seeds, paired p < 1e-5). Full page against windows: LayoutLMv3 at 2048 tokens is better on Ad-buy (+1.55, p = 0.007) and RealKIE (+1.18, p = 0.011, 5/5 seeds); on Registration, where 1024 tokens already cover every page, windows and 1024 are tied (-0.83, p = 0.25); ERNIE-Layout ties windows on all three (largest difference 0.73, p = 0.07). Data: `scripts/prepare_vrdu.py` (Ad-buy and Registration, `lv2-mixed_template-train_200` split for Registration) and `scripts/prepare_realkie.py` (RealKIE FCC Invoices, CC BY-NC 4.0). W&B: Registration v3 [truncate](https://forge.coreweave.com/wandb/qbao775/layoutlmv3-pretraining/runs/fwxpwtvj), [window](https://forge.coreweave.com/wandb/qbao775/layoutlmv3-pretraining/runs/f3tdl4ve), [1024](https://forge.coreweave.com/wandb/qbao775/layoutlmv3-pretraining/runs/n6q9h7hh), ERNIE [truncate](https://forge.coreweave.com/wandb/qbao775/layoutlmv3-pretraining/runs/emanehys), [window](https://forge.coreweave.com/wandb/qbao775/layoutlmv3-pretraining/runs/v5yda92v), [1024](https://forge.coreweave.com/wandb/qbao775/layoutlmv3-pretraining/runs/hmwlf3sh); RealKIE v3 [truncate](https://forge.coreweave.com/wandb/qbao775/layoutlmv3-pretraining/runs/84cgkq77), [window](https://forge.coreweave.com/wandb/qbao775/layoutlmv3-pretraining/runs/mq7qro82), [1024](https://forge.coreweave.com/wandb/qbao775/layoutlmv3-pretraining/runs/n708s4tu), [2048](https://forge.coreweave.com/wandb/qbao775/layoutlmv3-pretraining/runs/mepkvzug), ERNIE [truncate](https://forge.coreweave.com/wandb/qbao775/layoutlmv3-pretraining/runs/3xoyp62h), [window](https://forge.coreweave.com/wandb/qbao775/layoutlmv3-pretraining/runs/shq41vnk), [2048](https://forge.coreweave.com/wandb/qbao775/layoutlmv3-pretraining/runs/92l0mlu1).
+
 **Convergence** (`--eval_at`, seeds 1-3, test F1 during fine-tuning; `results/long_docs/vrdu_curve_v3_*.json`, W&B [truncate](https://forge.coreweave.com/wandb/qbao775/layoutlmv3-pretraining/runs/472zb7o1), [2048](https://forge.coreweave.com/wandb/qbao775/layoutlmv3-pretraining/runs/wvh50gmg)). Tiled positions do not slow convergence: the training loss falls at the same rate, and the test F1 is higher at every checkpoint. 2048 tokens pass truncation's final F1 by step 500 and plateau at about step 1500. The 2048 run here trains with `--attention lut`.
 
 | step | 250 | 500 | 750 | 1000 | 1500 | 2000 |

@@ -234,8 +234,6 @@ def evaluate_windows(model, windows, gold, labels, device):
         y_pred.append([labels[best[(doc, w)][1]] for w in range(len(tags))])
     if was_training:
         model.train()
-    if per_doc is not None:   # (gold tags, predicted tags) of every test document, in order
-        per_doc.extend(zip(y_true, y_pred))
     return f1_score(y_true, y_pred), float(np.mean(losses))
 
 
