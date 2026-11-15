@@ -588,6 +588,7 @@ Switching an existing checkpoint to the corrected preprocessing without fine-tun
 
 - **Image preprocessing.** The visual backbone normalises 0-255 RGB pixels itself, as PaddleNLP feeds them. The port's README normalises to [-1, 1] first, which leaves every page with nearly the same visual features (NormXU/ERNIE-Layout-Pytorch#26). Here images stay in 0-255.
 - **Frozen BatchNorm statistics.** The visual ResNet's BatchNorm layers stay in eval mode during training. Otherwise their running statistics change on every forward pass, even with the encoder frozen.
+  With LoRA (rank 8 on query/value, head trained, only the adapter saved; `scripts/lora_batchnorm_check.py`, `results/lora_bn/`, 3 seeds, strict 512 tokens), BatchNorm in train mode moves the running means by up to 26.3 with the README's twice-normalised images (3.5 with 0-255 pixels), and the reloaded model (pretrained statistics) scores a little below the in-memory one. Effect on the reloaded F1 of keeping BatchNorm frozen: FUNSD +0.12 (twice-normalised, p = 0.72) / +1.21 (0-255, p = 0.09); RealKIE invoices +0.37 (p = 0.30) / +0.28 (p = 0.38). Small and within noise at 3 seeds; frozen BatchNorm makes the in-memory and reloaded models identical.
 
 ```bash
 # fine-tuning, truncation vs 512-token windows vs RoPE extrapolation to 1024 tokens

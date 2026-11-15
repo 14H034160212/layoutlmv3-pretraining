@@ -1,0 +1,103 @@
+{
+ "task": "funsd",
+ "pages": null,
+ "images": "paddle",
+ "steps": 1000,
+ "lr": 0.0003,
+ "batch_size": 2,
+ "lora_r": 8,
+ "lora_targets": [
+  "query",
+  "value"
+ ],
+ "protocol": "strict, 512 tokens",
+ "results": {
+  "train": {
+   "runs": [
+    {
+     "seed": 1,
+     "in_memory": 0.8265,
+     "reloaded": 0.8186,
+     "max_running_mean_drift": 3.3934,
+     "trainable_params": 300295,
+     "saved_files": [
+      "README.md",
+      "adapter_config.json",
+      "adapter_model.safetensors"
+     ]
+    },
+    {
+     "seed": 2,
+     "in_memory": 0.8161,
+     "reloaded": 0.8117,
+     "max_running_mean_drift": 3.5005,
+     "trainable_params": 300295,
+     "saved_files": [
+      "README.md",
+      "adapter_config.json",
+      "adapter_model.safetensors"
+     ]
+    },
+    {
+     "seed": 3,
+     "in_memory": 0.8087,
+     "reloaded": 0.805,
+     "max_running_mean_drift": 3.4606,
+     "trainable_params": 300295,
+     "saved_files": [
+      "README.md",
+      "adapter_config.json",
+      "adapter_model.safetensors"
+     ]
+    }
+   ],
+   "in_memory_mean": 0.8171,
+   "reloaded_mean": 0.8118,
+   "gap_mean": 0.0053
+  },
+  "frozen": {
+   "runs": [
+    {
+     "seed": 1,
+     "in_memory": 0.8375,
+     "reloaded": 0.8375,
+     "max_running_mean_drift": 0.0,
+     "trainable_params": 300295,
+     "saved_files": [
+      "README.md",
+      "adapter_config.json",
+      "adapter_model.safetensors"
+     ]
+    },
+    {
+     "seed": 2,
+     "in_memory": 0.8232,
+     "reloaded": 0.8232,
+     "max_running_mean_drift": 0.0,
+     "trainable_params": 300295,
+     "saved_files": [
+      "README.md",
+      "adapter_config.json",
+      "adapter_model.safetensors"
+     ]
+    },
+    {
+     "seed": 3,
+     "in_memory": 0.8108,
+     "reloaded": 0.8108,
+     "max_running_mean_drift": 0.0,
+     "trainable_params": 300295,
+     "saved_files": [
+      "README.md",
+      "adapter_config.json",
+      "adapter_model.safetensors"
+     ]
+    }
+   ],
+   "in_memory_mean": 0.8238,
+   "reloaded_mean": 0.8238,
+   "gap_mean": 0.0
+  }
+ },
+ "minutes": 8.2
+}

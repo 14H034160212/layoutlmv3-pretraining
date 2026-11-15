@@ -1,0 +1,103 @@
+{
+ "task": "vrdu",
+ "pages": "/data/qbao775/datasets/realkie/fcc_invoices_pages_hf",
+ "images": "readme",
+ "steps": 2000,
+ "lr": 0.0003,
+ "batch_size": 2,
+ "lora_r": 8,
+ "lora_targets": [
+  "query",
+  "value"
+ ],
+ "protocol": "strict, 512 tokens",
+ "results": {
+  "train": {
+   "runs": [
+    {
+     "seed": 1,
+     "in_memory": 0.4188,
+     "reloaded": 0.4178,
+     "max_running_mean_drift": 26.3345,
+     "trainable_params": 312599,
+     "saved_files": [
+      "README.md",
+      "adapter_config.json",
+      "adapter_model.safetensors"
+     ]
+    },
+    {
+     "seed": 2,
+     "in_memory": 0.4267,
+     "reloaded": 0.4226,
+     "max_running_mean_drift": 26.3324,
+     "trainable_params": 312599,
+     "saved_files": [
+      "README.md",
+      "adapter_config.json",
+      "adapter_model.safetensors"
+     ]
+    },
+    {
+     "seed": 3,
+     "in_memory": 0.4225,
+     "reloaded": 0.4219,
+     "max_running_mean_drift": 26.3329,
+     "trainable_params": 312599,
+     "saved_files": [
+      "README.md",
+      "adapter_config.json",
+      "adapter_model.safetensors"
+     ]
+    }
+   ],
+   "in_memory_mean": 0.4227,
+   "reloaded_mean": 0.4208,
+   "gap_mean": 0.0019
+  },
+  "frozen": {
+   "runs": [
+    {
+     "seed": 1,
+     "in_memory": 0.4233,
+     "reloaded": 0.4233,
+     "max_running_mean_drift": 0.0,
+     "trainable_params": 312599,
+     "saved_files": [
+      "README.md",
+      "adapter_config.json",
+      "adapter_model.safetensors"
+     ]
+    },
+    {
+     "seed": 2,
+     "in_memory": 0.4296,
+     "reloaded": 0.4296,
+     "max_running_mean_drift": 0.0,
+     "trainable_params": 312599,
+     "saved_files": [
+      "README.md",
+      "adapter_config.json",
+      "adapter_model.safetensors"
+     ]
+    },
+    {
+     "seed": 3,
+     "in_memory": 0.4204,
+     "reloaded": 0.4204,
+     "max_running_mean_drift": 0.0,
+     "trainable_params": 312599,
+     "saved_files": [
+      "README.md",
+      "adapter_config.json",
+      "adapter_model.safetensors"
+     ]
+    }
+   ],
+   "in_memory_mean": 0.4244,
+   "reloaded_mean": 0.4244,
+   "gap_mean": 0.0
+  }
+ },
+ "minutes": 18.7
+}
