@@ -1,0 +1,121 @@
+wandb: [wandb.login()] Loaded credentials for https://api.forge.coreweave.com from /home/qbao775/.netrc.
+wandb: Currently logged in as: qbao775 to https://api.forge.coreweave.com. Use `wandb login --relogin` to force relogin
+wandb: setting up run 7hpcxa09
+wandb: Tracking run with wandb version 0.31.0
+wandb: Run data is saved locally in /data/qbao775/layoutlmv3-pretraining/wandb/run-20261114_232146-7hpcxa09
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run 20261114T232144Z-finetune_vrdu-ba0694
+wandb: ⭐️ View project at https://forge.coreweave.com/wandb/qbao775/layoutlmv3-pretraining
+wandb: 🚀 View run at https://forge.coreweave.com/wandb/qbao775/layoutlmv3-pretraining/runs/7hpcxa09
+Map:   0%|          | 0/1046 [00:00<?, ? examples/s]Map:  96%|█████████▌| 1000/1046 [00:21<00:00, 46.84 examples/s]Map: 100%|██████████| 1046/1046 [00:22<00:00, 47.05 examples/s]Map: 100%|██████████| 1046/1046 [00:22<00:00, 46.97 examples/s]
+Map:   0%|          | 0/368 [00:00<?, ? examples/s]Map: 100%|██████████| 368/368 [00:06<00:00, 53.51 examples/s]Map: 100%|██████████| 368/368 [00:06<00:00, 53.39 examples/s]
+Some weights of LayoutLMv3ForTokenClassification were not initialized from the model checkpoint at microsoft/layoutlmv3-base and are newly initialized: ['classifier.dense.bias', 'classifier.dense.weight', 'classifier.out_proj.bias', 'classifier.out_proj.weight']
+You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
+/data/qbao775/layoutlmv3-pretraining/.venv/lib64/python3.11/site-packages/transformers/modeling_utils.py:1621: FutureWarning: The `device` argument is deprecated and will be removed in v5 of Transformers.
+  warnings.warn(
+{"seed": 1, "f1": 0.6833}
+Map:   0%|          | 0/368 [00:00<?, ? examples/s]Map: 100%|██████████| 368/368 [00:07<00:00, 47.61 examples/s]Map: 100%|██████████| 368/368 [00:07<00:00, 47.51 examples/s]
+Some weights of LayoutLMv3ForTokenClassification were not initialized from the model checkpoint at microsoft/layoutlmv3-base and are newly initialized: ['classifier.dense.bias', 'classifier.dense.weight', 'classifier.out_proj.bias', 'classifier.out_proj.weight']
+You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
+/data/qbao775/layoutlmv3-pretraining/.venv/lib64/python3.11/site-packages/transformers/modeling_utils.py:1621: FutureWarning: The `device` argument is deprecated and will be removed in v5 of Transformers.
+  warnings.warn(
+{"seed": 2, "f1": 0.6894}
+Some weights of LayoutLMv3ForTokenClassification were not initialized from the model checkpoint at microsoft/layoutlmv3-base and are newly initialized: ['classifier.dense.bias', 'classifier.dense.weight', 'classifier.out_proj.bias', 'classifier.out_proj.weight']
+You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
+{"seed": 3, "f1": 0.669}
+Some weights of LayoutLMv3ForTokenClassification were not initialized from the model checkpoint at microsoft/layoutlmv3-base and are newly initialized: ['classifier.dense.bias', 'classifier.dense.weight', 'classifier.out_proj.bias', 'classifier.out_proj.weight']
+You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
+{"seed": 4, "f1": 0.6778}
+Some weights of LayoutLMv3ForTokenClassification were not initialized from the model checkpoint at microsoft/layoutlmv3-base and are newly initialized: ['classifier.dense.bias', 'classifier.dense.weight', 'classifier.out_proj.bias', 'classifier.out_proj.weight']
+You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
+{"seed": 5, "f1": 0.6749}
+wandb: updating run metadata
+wandb: uploading config.yaml; uploading output.log; uploading wandb-summary.json
+wandb: uploading history steps 4-4, summary, console lines 21-22
+wandb: 
+wandb: Run history:
+wandb:    seed ▁▃▅▆█
+wandb: vrdu/f1 ▆█▁▄▃
+wandb: 
+wandb: Run summary:
+wandb:    mean 0.6789
+wandb: minutes 38.5
+wandb:    seed 5
+wandb:     std 0.0078
+wandb: vrdu/f1 0.67485
+wandb: 
+wandb: 🚀 View run 20261114T232144Z-finetune_vrdu-ba0694 at: https://forge.coreweave.com/wandb/qbao775/layoutlmv3-pretraining/runs/7hpcxa09
+wandb: ⭐️ View project at: https://forge.coreweave.com/wandb/qbao775/layoutlmv3-pretraining
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20261114_232146-7hpcxa09/logs
+{"task": "vrdu", "model": "microsoft/layoutlmv3-base", "family": "layoutlmv3", "extrapolation": false, "extend_positions": true, "max_length": 4096, "protocol": "strict", "long_docs": "truncate", "steps": 2000, "lr": 3e-05, "batch_size": 2, "seeds": [1, 2, 3, 4, 5], "f1": [0.6833, 0.6894, 0.669, 0.6778, 0.6749], "mean": 0.6789, "std": 0.0078, "minutes": 38.5}
+2026-11-15T00:00:20Z v3_extpos4096 exit=0
+wandb: [wandb.login()] Loaded credentials for https://api.forge.coreweave.com from /home/qbao775/.netrc.
+wandb: Currently logged in as: qbao775 to https://api.forge.coreweave.com. Use `wandb login --relogin` to force relogin
+wandb: setting up run kbjl4ztf
+wandb: Tracking run with wandb version 0.31.0
+wandb: Run data is saved locally in /data/qbao775/layoutlmv3-pretraining/wandb/run-20261115_000026-kbjl4ztf
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run 20261115T000024Z-finetune_vrdu-71d262
+wandb: ⭐️ View project at https://forge.coreweave.com/wandb/qbao775/layoutlmv3-pretraining
+wandb: 🚀 View run at https://forge.coreweave.com/wandb/qbao775/layoutlmv3-pretraining/runs/kbjl4ztf
+The tokenizer class you load from this checkpoint is not the same type as the class this function is called from. It may result in unexpected tokenization. 
+The tokenizer class you load from this checkpoint is 'XLNetTokenizer'. 
+The class this function is called from is 'CompatTokenizer'.
+You are using a model of type xlnet to instantiate a model of type ernie_layout. This is not supported for all configurations of models and can yield errors.
+Some weights of ErnieLayoutForTokenClassification were not initialized from the model checkpoint at Norm/ERNIE-Layout-Pytorch and are newly initialized: ['classifier.bias', 'classifier.weight', 'ernie_layout.visual.backbone.batch_norm1.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.0.batch_norm1.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.0.batch_norm2.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.0.batch_norm3.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.0.shortcut.1.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.1.batch_norm1.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.1.batch_norm2.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.1.batch_norm3.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.2.batch_norm1.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.2.batch_norm2.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.2.batch_norm3.num_batches_tracked']
+You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
+Map:   0%|          | 0/1046 [00:00<?, ? examples/s]Map:  96%|█████████▌| 1000/1046 [00:25<00:01, 39.31 examples/s]Map: 100%|██████████| 1046/1046 [00:26<00:00, 39.35 examples/s]Map: 100%|██████████| 1046/1046 [00:26<00:00, 39.32 examples/s]
+Map:   0%|          | 0/368 [00:00<?, ? examples/s]Map: 100%|██████████| 368/368 [00:09<00:00, 40.23 examples/s]Map: 100%|██████████| 368/368 [00:09<00:00, 40.16 examples/s]
+{"seed": 1, "f1": 0.6722}
+The tokenizer class you load from this checkpoint is not the same type as the class this function is called from. It may result in unexpected tokenization. 
+The tokenizer class you load from this checkpoint is 'XLNetTokenizer'. 
+The class this function is called from is 'CompatTokenizer'.
+You are using a model of type xlnet to instantiate a model of type ernie_layout. This is not supported for all configurations of models and can yield errors.
+Some weights of ErnieLayoutForTokenClassification were not initialized from the model checkpoint at Norm/ERNIE-Layout-Pytorch and are newly initialized: ['classifier.bias', 'classifier.weight', 'ernie_layout.visual.backbone.batch_norm1.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.0.batch_norm1.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.0.batch_norm2.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.0.batch_norm3.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.0.shortcut.1.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.1.batch_norm1.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.1.batch_norm2.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.1.batch_norm3.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.2.batch_norm1.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.2.batch_norm2.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.2.batch_norm3.num_batches_tracked']
+You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
+Map:   0%|          | 0/368 [00:00<?, ? examples/s]Map: 100%|██████████| 368/368 [00:09<00:00, 39.03 examples/s]Map: 100%|██████████| 368/368 [00:09<00:00, 38.97 examples/s]
+{"seed": 2, "f1": 0.6756}
+The tokenizer class you load from this checkpoint is not the same type as the class this function is called from. It may result in unexpected tokenization. 
+The tokenizer class you load from this checkpoint is 'XLNetTokenizer'. 
+The class this function is called from is 'CompatTokenizer'.
+You are using a model of type xlnet to instantiate a model of type ernie_layout. This is not supported for all configurations of models and can yield errors.
+Some weights of ErnieLayoutForTokenClassification were not initialized from the model checkpoint at Norm/ERNIE-Layout-Pytorch and are newly initialized: ['classifier.bias', 'classifier.weight', 'ernie_layout.visual.backbone.batch_norm1.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.0.batch_norm1.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.0.batch_norm2.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.0.batch_norm3.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.0.shortcut.1.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.1.batch_norm1.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.1.batch_norm2.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.1.batch_norm3.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.2.batch_norm1.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.2.batch_norm2.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.2.batch_norm3.num_batches_tracked']
+You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
+{"seed": 3, "f1": 0.6784}
+The tokenizer class you load from this checkpoint is not the same type as the class this function is called from. It may result in unexpected tokenization. 
+The tokenizer class you load from this checkpoint is 'XLNetTokenizer'. 
+The class this function is called from is 'CompatTokenizer'.
+You are using a model of type xlnet to instantiate a model of type ernie_layout. This is not supported for all configurations of models and can yield errors.
+Some weights of ErnieLayoutForTokenClassification were not initialized from the model checkpoint at Norm/ERNIE-Layout-Pytorch and are newly initialized: ['classifier.bias', 'classifier.weight', 'ernie_layout.visual.backbone.batch_norm1.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.0.batch_norm1.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.0.batch_norm2.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.0.batch_norm3.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.0.shortcut.1.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.1.batch_norm1.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.1.batch_norm2.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.1.batch_norm3.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.2.batch_norm1.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.2.batch_norm2.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.2.batch_norm3.num_batches_tracked']
+You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
+{"seed": 4, "f1": 0.6753}
+The tokenizer class you load from this checkpoint is not the same type as the class this function is called from. It may result in unexpected tokenization. 
+The tokenizer class you load from this checkpoint is 'XLNetTokenizer'. 
+The class this function is called from is 'CompatTokenizer'.
+You are using a model of type xlnet to instantiate a model of type ernie_layout. This is not supported for all configurations of models and can yield errors.
+Some weights of ErnieLayoutForTokenClassification were not initialized from the model checkpoint at Norm/ERNIE-Layout-Pytorch and are newly initialized: ['classifier.bias', 'classifier.weight', 'ernie_layout.visual.backbone.batch_norm1.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.0.batch_norm1.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.0.batch_norm2.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.0.batch_norm3.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.0.shortcut.1.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.1.batch_norm1.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.1.batch_norm2.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.1.batch_norm3.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.2.batch_norm1.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.2.batch_norm2.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.2.batch_norm3.num_batches_tracked']
+You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
+{"seed": 5, "f1": 0.6652}
+wandb: updating run metadata
+wandb: uploading output.log; uploading wandb-summary.json; uploading config.yaml
+wandb: uploading history steps 4-4, summary, console lines 37-38
+wandb: 
+wandb: Run history:
+wandb:    seed ▁▃▅▆█
+wandb: vrdu/f1 ▅▇█▆▁
+wandb: 
+wandb: Run summary:
+wandb:    mean 0.6733
+wandb: minutes 37.6
+wandb:    seed 5
+wandb:     std 0.0051
+wandb: vrdu/f1 0.66518
+wandb: 
+wandb: 🚀 View run 20261115T000024Z-finetune_vrdu-71d262 at: https://forge.coreweave.com/wandb/qbao775/layoutlmv3-pretraining/runs/kbjl4ztf
+wandb: ⭐️ View project at: https://forge.coreweave.com/wandb/qbao775/layoutlmv3-pretraining
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20261115_000026-kbjl4ztf/logs
+{"task": "vrdu", "model": "Norm/ERNIE-Layout-Pytorch", "family": "ernie-layout", "extrapolation": false, "extend_positions": true, "max_length": 4096, "protocol": "strict", "long_docs": "truncate", "steps": 2000, "lr": 3e-05, "batch_size": 2, "seeds": [1, 2, 3, 4, 5], "f1": [0.6722, 0.6756, 0.6784, 0.6753, 0.6652], "mean": 0.6733, "std": 0.0051, "minutes": 37.6}
+2026-11-15T00:38:10Z ernie_extpos4096 exit=0
+DONE
