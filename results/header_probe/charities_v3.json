@@ -1,0 +1,157 @@
+{
+ "args": {
+  "data": "/data/qbao775/datasets/realkie/charities_fin_pages_hf",
+  "model": "microsoft/layoutlmv3-base",
+  "family": "layoutlmv3",
+  "seeds": [
+   1,
+   2,
+   3,
+   4,
+   5
+  ],
+  "steps": 2000,
+  "lr": 3e-05,
+  "batch_size": 2,
+  "out": "results/header_probe/charities_v3.json",
+  "save_variants": null
+ },
+ "runs": [
+  {
+   "seed": 1,
+   "all_test": {
+    "f1": 0.7358078602620087,
+    "year_swap_rate": 0.01282051282051282,
+    "values": 468,
+    "pages": 165
+   },
+   "full": {
+    "f1": 0.762532981530343,
+    "year_swap_rate": 0.007751937984496124,
+    "values": 387,
+    "pages": 131
+   },
+   "cut": {
+    "f1": 0.7474452554744525,
+    "year_swap_rate": 0.0103359173126615,
+    "values": 387,
+    "pages": 131
+   },
+   "cut+hdr": {
+    "f1": 0.7613636363636365,
+    "year_swap_rate": 0.020671834625323,
+    "values": 387,
+    "pages": 131
+   }
+  },
+  {
+   "seed": 2,
+   "all_test": {
+    "f1": 0.7505285412262155,
+    "year_swap_rate": 0.029914529914529916,
+    "values": 468,
+    "pages": 165
+   },
+   "full": {
+    "f1": 0.7583547557840616,
+    "year_swap_rate": 0.03359173126614987,
+    "values": 387,
+    "pages": 131
+   },
+   "cut": {
+    "f1": 0.767932489451477,
+    "year_swap_rate": 0.025839793281653745,
+    "values": 387,
+    "pages": 131
+   },
+   "cut+hdr": {
+    "f1": 0.7769985974754557,
+    "year_swap_rate": 0.025839793281653745,
+    "values": 387,
+    "pages": 131
+   }
+  },
+  {
+   "seed": 3,
+   "all_test": {
+    "f1": 0.7765486725663716,
+    "year_swap_rate": 0.021367521367521368,
+    "values": 468,
+    "pages": 165
+   },
+   "full": {
+    "f1": 0.7882037533512064,
+    "year_swap_rate": 0.01808785529715762,
+    "values": 387,
+    "pages": 131
+   },
+   "cut": {
+    "f1": 0.7189349112426034,
+    "year_swap_rate": 0.0103359173126615,
+    "values": 387,
+    "pages": 131
+   },
+   "cut+hdr": {
+    "f1": 0.7540029112081513,
+    "year_swap_rate": 0.015503875968992248,
+    "values": 387,
+    "pages": 131
+   }
+  },
+  {
+   "seed": 4,
+   "all_test": {
+    "f1": 0.752711496746204,
+    "year_swap_rate": 0.029914529914529916,
+    "values": 468,
+    "pages": 165
+   },
+   "full": {
+    "f1": 0.7656249999999999,
+    "year_swap_rate": 0.031007751937984496,
+    "values": 387,
+    "pages": 131
+   },
+   "cut": {
+    "f1": 0.7496503496503496,
+    "year_swap_rate": 0.01808785529715762,
+    "values": 387,
+    "pages": 131
+   },
+   "cut+hdr": {
+    "f1": 0.778393351800554,
+    "year_swap_rate": 0.020671834625323,
+    "values": 387,
+    "pages": 131
+   }
+  },
+  {
+   "seed": 5,
+   "all_test": {
+    "f1": 0.7325842696629212,
+    "year_swap_rate": 0.02564102564102564,
+    "values": 468,
+    "pages": 165
+   },
+   "full": {
+    "f1": 0.7560321715817693,
+    "year_swap_rate": 0.028423772609819122,
+    "values": 387,
+    "pages": 131
+   },
+   "cut": {
+    "f1": 0.7302052785923754,
+    "year_swap_rate": 0.01808785529715762,
+    "values": 387,
+    "pages": 131
+   },
+   "cut+hdr": {
+    "f1": 0.7261904761904762,
+    "year_swap_rate": 0.028423772609819122,
+    "values": 387,
+    "pages": 131
+   }
+  }
+ ],
+ "minutes": 24.0
+}

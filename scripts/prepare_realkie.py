@@ -63,11 +63,15 @@ def main():
     ap.add_argument("--dataset", default="fcc_invoices")
     ap.add_argument("--out", required=True)
     ap.add_argument("--max_side", type=int, default=1000, help="longest side of the saved page images, in pixels")
+    ap.add_argument("--fields", nargs="+", default=None, help="keep only these RealKIE labels (others become O)")
+    ap.add_argument("--only_tagged_pages", action="store_true",
+                    help="keep only pages with at least one kept field (see download_realkie_pages.py)")
     a = ap.parse_args()
 
     splits = {"train": "train.csv", "valid": "val.csv", "test": "test.csv"}
     rows = {name: list(csv.DictReader(open(os.path.join(a.realkie_dir, a.dataset, f)))) for name, f in splits.items()}
-    fields = sorted({field_tag(l["label"]) for r in rows["train"] for l in json.loads(r["labels"])})
+    fields = sorted({field_tag(l["label"]) for r in rows["train"] for l in json.loads(r["labels"])
+                     if a.fields is None or l["label"] in a.fields})
     labels = ["O"] + [f"{p}-{f}" for f in fields for p in ("B", "I")]
     feats = Features({"tokens": Sequence(Value("string")), "bboxes": Sequence(Sequence(Value("int64"))),
                       "ner_tags": Sequence(ClassLabel(names=labels)), "image": ImageFeature(),
@@ -80,7 +84,12 @@ def main():
                      if field_tag(l["label"]) in fields]
             ocr = json.load(gzip.open(os.path.join(a.realkie_dir, r["ocr"])))
             images = json.loads(r["image_files"])
+            if a.only_tagged_pages and not spans:
+                continue
             for i, page in enumerate(ocr):
+                offs = [t["doc_offset"] for t in page["tokens"]]
+                if a.only_tagged_pages and not any(o["start"] < e and o["end"] > s for _, s, e in spans for o in offs):
+                    continue
                 image = Image.open(os.path.join(a.realkie_dir, images[i])).convert("RGB")
                 ex = page_example(page, spans, image, labels)
                 if not ex["tokens"]:

@@ -1,0 +1,69 @@
+{'full': 131, 'cut': 131, 'cut+hdr': 131}
+wandb: [wandb.login()] Loaded credentials for https://api.forge.coreweave.com from /home/qbao775/.netrc.
+wandb: Currently logged in as: qbao775 to https://api.forge.coreweave.com. Use `wandb login --relogin` to force relogin
+wandb: setting up run ntyzt58r
+wandb: Tracking run with wandb version 0.31.0
+wandb: Run data is saved locally in /data/qbao775/layoutlmv3-pretraining/wandb/run-20261119_011750-ntyzt58r
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run 20261119T011748Z-header_needed_probe-d0df21
+wandb: ⭐️ View project at https://forge.coreweave.com/wandb/qbao775/layoutlmv3-pretraining
+wandb: 🚀 View run at https://forge.coreweave.com/wandb/qbao775/layoutlmv3-pretraining/runs/ntyzt58r
+Some weights of LayoutLMv3ForTokenClassification were not initialized from the model checkpoint at microsoft/layoutlmv3-base and are newly initialized: ['classifier.dense.bias', 'classifier.dense.weight', 'classifier.out_proj.bias', 'classifier.out_proj.weight']
+You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
+Token indices sequence length is longer than the specified maximum sequence length for this model (684 > 512). Running this sequence through the model will result in indexing errors
+/data/qbao775/layoutlmv3-pretraining/.venv/lib64/python3.11/site-packages/transformers/modeling_utils.py:1621: FutureWarning: The `device` argument is deprecated and will be removed in v5 of Transformers.
+  warnings.warn(
+{"seed": 1, "all_test": {"f1": 0.7358078602620087, "year_swap_rate": 0.01282051282051282, "values": 468, "pages": 165}, "full": {"f1": 0.762532981530343, "year_swap_rate": 0.007751937984496124, "values": 387, "pages": 131}, "cut": {"f1": 0.7474452554744525, "year_swap_rate": 0.0103359173126615, "values": 387, "pages": 131}, "cut+hdr": {"f1": 0.7613636363636365, "year_swap_rate": 0.020671834625323, "values": 387, "pages": 131}}
+Some weights of LayoutLMv3ForTokenClassification were not initialized from the model checkpoint at microsoft/layoutlmv3-base and are newly initialized: ['classifier.dense.bias', 'classifier.dense.weight', 'classifier.out_proj.bias', 'classifier.out_proj.weight']
+You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
+Token indices sequence length is longer than the specified maximum sequence length for this model (684 > 512). Running this sequence through the model will result in indexing errors
+/data/qbao775/layoutlmv3-pretraining/.venv/lib64/python3.11/site-packages/transformers/modeling_utils.py:1621: FutureWarning: The `device` argument is deprecated and will be removed in v5 of Transformers.
+  warnings.warn(
+{"seed": 2, "all_test": {"f1": 0.7505285412262155, "year_swap_rate": 0.029914529914529916, "values": 468, "pages": 165}, "full": {"f1": 0.7583547557840616, "year_swap_rate": 0.03359173126614987, "values": 387, "pages": 131}, "cut": {"f1": 0.767932489451477, "year_swap_rate": 0.025839793281653745, "values": 387, "pages": 131}, "cut+hdr": {"f1": 0.7769985974754557, "year_swap_rate": 0.025839793281653745, "values": 387, "pages": 131}}
+Some weights of LayoutLMv3ForTokenClassification were not initialized from the model checkpoint at microsoft/layoutlmv3-base and are newly initialized: ['classifier.dense.bias', 'classifier.dense.weight', 'classifier.out_proj.bias', 'classifier.out_proj.weight']
+You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
+Token indices sequence length is longer than the specified maximum sequence length for this model (684 > 512). Running this sequence through the model will result in indexing errors
+{"seed": 3, "all_test": {"f1": 0.7765486725663716, "year_swap_rate": 0.021367521367521368, "values": 468, "pages": 165}, "full": {"f1": 0.7882037533512064, "year_swap_rate": 0.01808785529715762, "values": 387, "pages": 131}, "cut": {"f1": 0.7189349112426034, "year_swap_rate": 0.0103359173126615, "values": 387, "pages": 131}, "cut+hdr": {"f1": 0.7540029112081513, "year_swap_rate": 0.015503875968992248, "values": 387, "pages": 131}}
+Some weights of LayoutLMv3ForTokenClassification were not initialized from the model checkpoint at microsoft/layoutlmv3-base and are newly initialized: ['classifier.dense.bias', 'classifier.dense.weight', 'classifier.out_proj.bias', 'classifier.out_proj.weight']
+You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
+Token indices sequence length is longer than the specified maximum sequence length for this model (684 > 512). Running this sequence through the model will result in indexing errors
+{"seed": 4, "all_test": {"f1": 0.752711496746204, "year_swap_rate": 0.029914529914529916, "values": 468, "pages": 165}, "full": {"f1": 0.7656249999999999, "year_swap_rate": 0.031007751937984496, "values": 387, "pages": 131}, "cut": {"f1": 0.7496503496503496, "year_swap_rate": 0.01808785529715762, "values": 387, "pages": 131}, "cut+hdr": {"f1": 0.778393351800554, "year_swap_rate": 0.020671834625323, "values": 387, "pages": 131}}
+Some weights of LayoutLMv3ForTokenClassification were not initialized from the model checkpoint at microsoft/layoutlmv3-base and are newly initialized: ['classifier.dense.bias', 'classifier.dense.weight', 'classifier.out_proj.bias', 'classifier.out_proj.weight']
+You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
+Token indices sequence length is longer than the specified maximum sequence length for this model (684 > 512). Running this sequence through the model will result in indexing errors
+{"seed": 5, "all_test": {"f1": 0.7325842696629212, "year_swap_rate": 0.02564102564102564, "values": 468, "pages": 165}, "full": {"f1": 0.7560321715817693, "year_swap_rate": 0.028423772609819122, "values": 387, "pages": 131}, "cut": {"f1": 0.7302052785923754, "year_swap_rate": 0.01808785529715762, "values": 387, "pages": 131}, "cut+hdr": {"f1": 0.7261904761904762, "year_swap_rate": 0.028423772609819122, "values": 387, "pages": 131}}
+wandb: updating run metadata
+wandb: uploading wandb-summary.json; uploading config.yaml; uploading output.log
+wandb: uploading config.yaml
+wandb: uploading history steps 4-4, summary, console lines 23-23
+wandb: 
+wandb: Run history:
+wandb:             all_test/f1 ▂▄█▄▁
+wandb:          all_test/pages ▁▁▁▁▁
+wandb:         all_test/values ▁▁▁▁▁
+wandb: all_test/year_swap_rate ▁█▅█▆
+wandb:              cut+hdr/f1 ▆█▅█▁
+wandb:           cut+hdr/pages ▁▁▁▁▁
+wandb:          cut+hdr/values ▁▁▁▁▁
+wandb:  cut+hdr/year_swap_rate ▄▇▁▄█
+wandb:                  cut/f1 ▅█▁▅▃
+wandb:               cut/pages ▁▁▁▁▁
+wandb:                      +7 ...
+wandb: 
+wandb: Run summary:
+wandb:             all_test/f1 0.73258
+wandb:          all_test/pages 165
+wandb:         all_test/values 468
+wandb: all_test/year_swap_rate 0.02564
+wandb:              cut+hdr/f1 0.72619
+wandb:           cut+hdr/pages 131
+wandb:          cut+hdr/values 387
+wandb:  cut+hdr/year_swap_rate 0.02842
+wandb:                  cut/f1 0.73021
+wandb:               cut/pages 131
+wandb:                      +9 ...
+wandb: 
+wandb: 🚀 View run 20261119T011748Z-header_needed_probe-d0df21 at: https://forge.coreweave.com/wandb/qbao775/layoutlmv3-pretraining/runs/ntyzt58r
+wandb: ⭐️ View project at: https://forge.coreweave.com/wandb/qbao775/layoutlmv3-pretraining
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20261119_011750-ntyzt58r/logs
