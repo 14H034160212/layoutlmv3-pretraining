@@ -1,0 +1,79 @@
+{
+ "args": {
+  "mode": "prefix",
+  "data": "/data/qbao775/datasets/realkie/fcc_invoices_pages_hdr_hf",
+  "model": "microsoft/layoutlmv3-base",
+  "seeds": [
+   1,
+   2,
+   3
+  ],
+  "steps": 2000,
+  "lr": 3e-05,
+  "batch_size": 2,
+  "out": "results/table_header/prefix.json"
+ },
+ "runs": [
+  {
+   "seed": 1,
+   "train_windows": 3420,
+   "prefix": {
+    "f1": 0.674569028594843,
+    "li_f1": 0.691188580839967,
+    "li_f1_headerless_pages": 0.778096479791395,
+    "headerless_pages": 23,
+    "header_p": 0.8752955082742316,
+    "header_r": 0.9686069326357096
+   },
+   "oracle": {
+    "f1": 0.6750592850660186,
+    "li_f1": 0.6914793007718357,
+    "li_f1_headerless_pages": 0.7790242629793895,
+    "headerless_pages": 23,
+    "header_p": 0.8795001487652484,
+    "header_r": 0.9666448659254414
+   }
+  },
+  {
+   "seed": 2,
+   "train_windows": 3420,
+   "prefix": {
+    "f1": 0.6568756010140746,
+    "li_f1": 0.6747516606740204,
+    "li_f1_headerless_pages": 0.7889420520999468,
+    "headerless_pages": 23,
+    "header_p": 0.8930704898446834,
+    "header_r": 0.9777632439502943
+   },
+   "oracle": {
+    "f1": 0.6573251376467504,
+    "li_f1": 0.675175922259116,
+    "li_f1_headerless_pages": 0.7907471417176283,
+    "headerless_pages": 23,
+    "header_p": 0.9056206792906523,
+    "header_r": 0.9852844996729889
+   }
+  },
+  {
+   "seed": 3,
+   "train_windows": 3420,
+   "prefix": {
+    "f1": 0.6678115085717612,
+    "li_f1": 0.6866984243312569,
+    "li_f1_headerless_pages": 0.7733681462140992,
+    "headerless_pages": 23,
+    "header_p": 0.9214285714285714,
+    "header_r": 0.9702419882275998
+   },
+   "oracle": {
+    "f1": 0.669269770965674,
+    "li_f1": 0.6879222327515055,
+    "li_f1_headerless_pages": 0.7742103889323936,
+    "headerless_pages": 23,
+    "header_p": 0.9210767818904864,
+    "header_r": 0.9846304774362329
+   }
+  }
+ ],
+ "minutes": 33.0
+}

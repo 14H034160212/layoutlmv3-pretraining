@@ -1,0 +1,55 @@
+{
+ "args": {
+  "mode": "none",
+  "data": "/data/qbao775/datasets/realkie/fcc_invoices_pages_hdr_hf",
+  "model": "microsoft/layoutlmv3-base",
+  "seeds": [
+   1,
+   2,
+   3
+  ],
+  "steps": 2000,
+  "lr": 3e-05,
+  "batch_size": 2,
+  "out": "results/table_header/none.json"
+ },
+ "runs": [
+  {
+   "seed": 1,
+   "train_windows": 2706,
+   "none": {
+    "f1": 0.6542912530106326,
+    "li_f1": 0.6737282916615347,
+    "li_f1_headerless_pages": 0.7261716692996314,
+    "headerless_pages": 23,
+    "header_p": 0.0,
+    "header_r": 0.0
+   }
+  },
+  {
+   "seed": 2,
+   "train_windows": 2706,
+   "none": {
+    "f1": 0.6625243385637384,
+    "li_f1": 0.6776605366294846,
+    "li_f1_headerless_pages": 0.7648431423386051,
+    "headerless_pages": 23,
+    "header_p": 0.0,
+    "header_r": 0.0
+   }
+  },
+  {
+   "seed": 3,
+   "train_windows": 2706,
+   "none": {
+    "f1": 0.6785958446036322,
+    "li_f1": 0.6938737217374987,
+    "li_f1_headerless_pages": 0.7566844919786097,
+    "headerless_pages": 23,
+    "header_p": 0.0,
+    "header_r": 0.0
+   }
+  }
+ ],
+ "minutes": 30.4
+}

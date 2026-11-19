@@ -1,0 +1,55 @@
+{
+ "args": {
+  "mode": "tag",
+  "data": "/data/qbao775/datasets/realkie/fcc_invoices_pages_hdr_hf",
+  "model": "microsoft/layoutlmv3-base",
+  "seeds": [
+   1,
+   2,
+   3
+  ],
+  "steps": 2000,
+  "lr": 3e-05,
+  "batch_size": 2,
+  "out": "results/table_header/tag.json"
+ },
+ "runs": [
+  {
+   "seed": 1,
+   "train_windows": 2706,
+   "tag": {
+    "f1": 0.6560742812653191,
+    "li_f1": 0.6694558132484463,
+    "li_f1_headerless_pages": 0.7644807348813473,
+    "headerless_pages": 23,
+    "header_p": 0.8717261904761905,
+    "header_r": 0.9578155657292348
+   }
+  },
+  {
+   "seed": 2,
+   "train_windows": 2706,
+   "tag": {
+    "f1": 0.6589198317066888,
+    "li_f1": 0.6725142685491138,
+    "li_f1_headerless_pages": 0.7585492227979274,
+    "headerless_pages": 23,
+    "header_p": 0.8779052662547808,
+    "header_r": 0.9758011772400261
+   }
+  },
+  {
+   "seed": 3,
+   "train_windows": 2706,
+   "tag": {
+    "f1": 0.6680396598899644,
+    "li_f1": 0.6883277633370467,
+    "li_f1_headerless_pages": 0.7763469119579501,
+    "headerless_pages": 23,
+    "header_p": 0.8728592162554427,
+    "header_r": 0.9833224329627207
+   }
+  }
+ ],
+ "minutes": 31.9
+}

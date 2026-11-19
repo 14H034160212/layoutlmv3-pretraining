@@ -1,0 +1,42 @@
+{
+ "args": {
+  "mode": "none",
+  "data": "/data/qbao775/datasets/realkie/fcc_invoices_pages_hdr_hf",
+  "model": "microsoft/layoutlmv3-base",
+  "seeds": [
+   4,
+   5
+  ],
+  "steps": 2000,
+  "lr": 3e-05,
+  "batch_size": 2,
+  "out": "results/table_header/none_s45.json"
+ },
+ "runs": [
+  {
+   "seed": 4,
+   "train_windows": 2706,
+   "none": {
+    "f1": 0.6618525607563366,
+    "li_f1": 0.6777323488130834,
+    "li_f1_headerless_pages": 0.750065980469781,
+    "headerless_pages": 23,
+    "header_p": 0.0,
+    "header_r": 0.0
+   }
+  },
+  {
+   "seed": 5,
+   "train_windows": 2706,
+   "none": {
+    "f1": 0.6622005684125051,
+    "li_f1": 0.6776283618581908,
+    "li_f1_headerless_pages": 0.7555209145232528,
+    "headerless_pages": 23,
+    "header_p": 0.0,
+    "header_r": 0.0
+   }
+  }
+ ],
+ "minutes": 20.4
+}

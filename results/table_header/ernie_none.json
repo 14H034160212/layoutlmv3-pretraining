@@ -1,0 +1,82 @@
+{
+ "args": {
+  "mode": "none",
+  "data": "/data/qbao775/datasets/realkie/fcc_invoices_pages_hdr_hf",
+  "model": "Norm/ERNIE-Layout-Pytorch",
+  "family": "ernie-layout",
+  "seeds": [
+   1,
+   2,
+   3,
+   4,
+   5
+  ],
+  "steps": 2000,
+  "lr": 3e-05,
+  "batch_size": 2,
+  "out": "results/table_header/ernie_none.json"
+ },
+ "runs": [
+  {
+   "seed": 1,
+   "train_windows": 2511,
+   "none": {
+    "f1": 0.6863565980386536,
+    "li_f1": 0.6914806626487779,
+    "li_f1_headerless_pages": 0.8483745123537061,
+    "headerless_pages": 23,
+    "header_p": 0.0,
+    "header_r": 0.0
+   }
+  },
+  {
+   "seed": 2,
+   "train_windows": 2511,
+   "none": {
+    "f1": 0.6607232406530339,
+    "li_f1": 0.6642348649761722,
+    "li_f1_headerless_pages": 0.8195121951219513,
+    "headerless_pages": 23,
+    "header_p": 0.0,
+    "header_r": 0.0
+   }
+  },
+  {
+   "seed": 3,
+   "train_windows": 2511,
+   "none": {
+    "f1": 0.6708525184875123,
+    "li_f1": 0.6772976478217297,
+    "li_f1_headerless_pages": 0.8353769893034176,
+    "headerless_pages": 23,
+    "header_p": 0.0,
+    "header_r": 0.0
+   }
+  },
+  {
+   "seed": 4,
+   "train_windows": 2511,
+   "none": {
+    "f1": 0.6673113569782987,
+    "li_f1": 0.6743801652892562,
+    "li_f1_headerless_pages": 0.8591403417918176,
+    "headerless_pages": 23,
+    "header_p": 0.0,
+    "header_r": 0.0
+   }
+  },
+  {
+   "seed": 5,
+   "train_windows": 2511,
+   "none": {
+    "f1": 0.6761774588530098,
+    "li_f1": 0.6816243166936986,
+    "li_f1_headerless_pages": 0.770964360587002,
+    "headerless_pages": 23,
+    "header_p": 0.0,
+    "header_r": 0.0
+   }
+  }
+ ],
+ "minutes": 20.9
+}

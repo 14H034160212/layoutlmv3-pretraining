@@ -1,0 +1,53 @@
+wandb: [wandb.login()] Loaded credentials for https://api.forge.coreweave.com from /home/qbao775/.netrc.
+wandb: Currently logged in as: qbao775 to https://api.forge.coreweave.com. Use `wandb login --relogin` to force relogin
+wandb: setting up run hfw72dwv
+wandb: Tracking run with wandb version 0.31.0
+wandb: Run data is saved locally in /data/qbao775/layoutlmv3-pretraining/wandb/run-20261118_114933-hfw72dwv
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run 20261118T114932Z-table_header_prefix-260950
+wandb: ⭐️ View project at https://forge.coreweave.com/wandb/qbao775/layoutlmv3-pretraining
+wandb: 🚀 View run at https://forge.coreweave.com/wandb/qbao775/layoutlmv3-pretraining/runs/hfw72dwv
+Token indices sequence length is longer than the specified maximum sequence length for this model (1350 > 512). Running this sequence through the model will result in indexing errors
+Some weights of LayoutLMv3ForTokenClassification were not initialized from the model checkpoint at microsoft/layoutlmv3-base and are newly initialized: ['classifier.dense.bias', 'classifier.dense.weight', 'classifier.out_proj.bias', 'classifier.out_proj.weight']
+You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
+/data/qbao775/layoutlmv3-pretraining/.venv/lib64/python3.11/site-packages/transformers/modeling_utils.py:1621: FutureWarning: The `device` argument is deprecated and will be removed in v5 of Transformers.
+  warnings.warn(
+{"seed": 1, "train_windows": 2706, "none": {"f1": 0.6542912530106326, "li_f1": 0.6737282916615347, "li_f1_headerless_pages": 0.7261716692996314, "headerless_pages": 23, "header_p": 0.0, "header_r": 0.0}}
+Token indices sequence length is longer than the specified maximum sequence length for this model (1350 > 512). Running this sequence through the model will result in indexing errors
+Some weights of LayoutLMv3ForTokenClassification were not initialized from the model checkpoint at microsoft/layoutlmv3-base and are newly initialized: ['classifier.dense.bias', 'classifier.dense.weight', 'classifier.out_proj.bias', 'classifier.out_proj.weight']
+You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
+/data/qbao775/layoutlmv3-pretraining/.venv/lib64/python3.11/site-packages/transformers/modeling_utils.py:1621: FutureWarning: The `device` argument is deprecated and will be removed in v5 of Transformers.
+  warnings.warn(
+{"seed": 2, "train_windows": 2706, "none": {"f1": 0.6625243385637384, "li_f1": 0.6776605366294846, "li_f1_headerless_pages": 0.7648431423386051, "headerless_pages": 23, "header_p": 0.0, "header_r": 0.0}}
+Token indices sequence length is longer than the specified maximum sequence length for this model (1350 > 512). Running this sequence through the model will result in indexing errors
+Some weights of LayoutLMv3ForTokenClassification were not initialized from the model checkpoint at microsoft/layoutlmv3-base and are newly initialized: ['classifier.dense.bias', 'classifier.dense.weight', 'classifier.out_proj.bias', 'classifier.out_proj.weight']
+You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
+{"seed": 3, "train_windows": 2706, "none": {"f1": 0.6785958446036322, "li_f1": 0.6938737217374987, "li_f1_headerless_pages": 0.7566844919786097, "headerless_pages": 23, "header_p": 0.0, "header_r": 0.0}}
+wandb: updating run metadata
+wandb: uploading output.log; uploading wandb-summary.json; uploading config.yaml
+wandb: uploading wandb-summary.json
+wandb: uploading history steps 2-2, summary, console lines 15-15
+wandb: 
+wandb: Run history:
+wandb:                     none/f1 ▁▃█
+wandb:               none/header_p ▁▁▁
+wandb:               none/header_r ▁▁▁
+wandb:       none/headerless_pages ▁▁▁
+wandb:                  none/li_f1 ▁▂█
+wandb: none/li_f1_headerless_pages ▁█▇
+wandb:                        seed ▁▅█
+wandb: 
+wandb: Run summary:
+wandb:                     minutes 30.4
+wandb:                     none/f1 0.6786
+wandb:               none/header_p 0
+wandb:               none/header_r 0
+wandb:       none/headerless_pages 23
+wandb:                  none/li_f1 0.69387
+wandb: none/li_f1_headerless_pages 0.75668
+wandb:                        seed 3
+wandb: 
+wandb: 🚀 View run 20261118T114932Z-table_header_prefix-260950 at: https://forge.coreweave.com/wandb/qbao775/layoutlmv3-pretraining/runs/hfw72dwv
+wandb: ⭐️ View project at: https://forge.coreweave.com/wandb/qbao775/layoutlmv3-pretraining
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20261118_114933-hfw72dwv/logs

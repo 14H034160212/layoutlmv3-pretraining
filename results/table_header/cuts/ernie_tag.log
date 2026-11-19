@@ -1,0 +1,83 @@
+wandb: [wandb.login()] Loaded credentials for https://api.forge.coreweave.com from /home/qbao775/.netrc.
+wandb: Currently logged in as: qbao775 to https://api.forge.coreweave.com. Use `wandb login --relogin` to force relogin
+wandb: setting up run v1wk742c
+wandb: Tracking run with wandb version 0.31.0
+wandb: Run data is saved locally in /data/qbao775/layoutlmv3-pretraining/wandb/run-20261118_225540-v1wk742c
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run 20261118T225538Z-table_header_prefix-6bc8be
+wandb: ⭐️ View project at https://forge.coreweave.com/wandb/qbao775/layoutlmv3-pretraining
+wandb: 🚀 View run at https://forge.coreweave.com/wandb/qbao775/layoutlmv3-pretraining/runs/v1wk742c
+The tokenizer class you load from this checkpoint is not the same type as the class this function is called from. It may result in unexpected tokenization. 
+The tokenizer class you load from this checkpoint is 'XLNetTokenizer'. 
+The class this function is called from is 'CompatTokenizer'.
+You are using a model of type xlnet to instantiate a model of type ernie_layout. This is not supported for all configurations of models and can yield errors.
+Some weights of ErnieLayoutForTokenClassification were not initialized from the model checkpoint at Norm/ERNIE-Layout-Pytorch and are newly initialized: ['classifier.bias', 'classifier.weight', 'ernie_layout.visual.backbone.batch_norm1.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.0.batch_norm1.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.0.batch_norm2.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.0.batch_norm3.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.0.shortcut.1.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.1.batch_norm1.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.1.batch_norm2.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.1.batch_norm3.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.2.batch_norm1.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.2.batch_norm2.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.2.batch_norm3.num_batches_tracked']
+You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
+Token indices sequence length is longer than the specified maximum sequence length for this model (1281 > 512). Running this sequence through the model will result in indexing errors
+{"seed": 1, "train_windows": 2511, "tag": {"f1": 0.6747291076993454, "li_f1": 0.6788774894387447, "li_f1_headerless_pages": 0.8195527821112846, "headerless_pages": 23, "header_p": 0.8797281323877069, "header_r": 0.97351209941138, "cut_li_f1_all": 0.8579915745508228, "cut_li_f1_k0": 0.8599197503343736, "cut_li_f1_k4": 0.8576081645947561, "cut_li_f1_k8": 0.8555290915277305, "cut_pages": 436}}
+The tokenizer class you load from this checkpoint is not the same type as the class this function is called from. It may result in unexpected tokenization. 
+The tokenizer class you load from this checkpoint is 'XLNetTokenizer'. 
+The class this function is called from is 'CompatTokenizer'.
+You are using a model of type xlnet to instantiate a model of type ernie_layout. This is not supported for all configurations of models and can yield errors.
+Some weights of ErnieLayoutForTokenClassification were not initialized from the model checkpoint at Norm/ERNIE-Layout-Pytorch and are newly initialized: ['classifier.bias', 'classifier.weight', 'ernie_layout.visual.backbone.batch_norm1.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.0.batch_norm1.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.0.batch_norm2.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.0.batch_norm3.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.0.shortcut.1.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.1.batch_norm1.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.1.batch_norm2.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.1.batch_norm3.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.2.batch_norm1.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.2.batch_norm2.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.2.batch_norm3.num_batches_tracked']
+You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
+Token indices sequence length is longer than the specified maximum sequence length for this model (1281 > 512). Running this sequence through the model will result in indexing errors
+{"seed": 2, "train_windows": 2511, "tag": {"f1": 0.6812838682784493, "li_f1": 0.6869440122133817, "li_f1_headerless_pages": 0.8654191233017176, "headerless_pages": 23, "header_p": 0.8840281855549031, "header_r": 0.9846304774362329, "cut_li_f1_all": 0.8790795794997253, "cut_li_f1_k0": 0.8786891022817372, "cut_li_f1_k4": 0.8805260063077992, "cut_li_f1_k8": 0.8778666666666666, "cut_pages": 436}}
+The tokenizer class you load from this checkpoint is not the same type as the class this function is called from. It may result in unexpected tokenization. 
+The tokenizer class you load from this checkpoint is 'XLNetTokenizer'. 
+The class this function is called from is 'CompatTokenizer'.
+You are using a model of type xlnet to instantiate a model of type ernie_layout. This is not supported for all configurations of models and can yield errors.
+Some weights of ErnieLayoutForTokenClassification were not initialized from the model checkpoint at Norm/ERNIE-Layout-Pytorch and are newly initialized: ['classifier.bias', 'classifier.weight', 'ernie_layout.visual.backbone.batch_norm1.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.0.batch_norm1.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.0.batch_norm2.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.0.batch_norm3.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.0.shortcut.1.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.1.batch_norm1.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.1.batch_norm2.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.1.batch_norm3.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.2.batch_norm1.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.2.batch_norm2.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.2.batch_norm3.num_batches_tracked']
+You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
+Token indices sequence length is longer than the specified maximum sequence length for this model (1281 > 512). Running this sequence through the model will result in indexing errors
+{"seed": 3, "train_windows": 2511, "tag": {"f1": 0.6686263425664216, "li_f1": 0.674760612117054, "li_f1_headerless_pages": 0.8052219321148825, "headerless_pages": 23, "header_p": 0.8841949778434269, "header_r": 0.9787442773054283, "cut_li_f1_all": 0.8554831145298537, "cut_li_f1_k0": 0.8572813822284909, "cut_li_f1_k4": 0.8544374899695073, "cut_li_f1_k8": 0.8540576794097922, "cut_pages": 436}}
+The tokenizer class you load from this checkpoint is not the same type as the class this function is called from. It may result in unexpected tokenization. 
+The tokenizer class you load from this checkpoint is 'XLNetTokenizer'. 
+The class this function is called from is 'CompatTokenizer'.
+You are using a model of type xlnet to instantiate a model of type ernie_layout. This is not supported for all configurations of models and can yield errors.
+Some weights of ErnieLayoutForTokenClassification were not initialized from the model checkpoint at Norm/ERNIE-Layout-Pytorch and are newly initialized: ['classifier.bias', 'classifier.weight', 'ernie_layout.visual.backbone.batch_norm1.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.0.batch_norm1.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.0.batch_norm2.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.0.batch_norm3.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.0.shortcut.1.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.1.batch_norm1.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.1.batch_norm2.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.1.batch_norm3.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.2.batch_norm1.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.2.batch_norm2.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.2.batch_norm3.num_batches_tracked']
+You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
+Token indices sequence length is longer than the specified maximum sequence length for this model (1281 > 512). Running this sequence through the model will result in indexing errors
+{"seed": 4, "train_windows": 2511, "tag": {"f1": 0.6772741607178693, "li_f1": 0.6851655508769804, "li_f1_headerless_pages": 0.8335901386748844, "headerless_pages": 23, "header_p": 0.8845460012026458, "header_r": 0.9620667102681492, "cut_li_f1_all": 0.8647385016853322, "cut_li_f1_k0": 0.8660774373009107, "cut_li_f1_k4": 0.8641435134543863, "cut_li_f1_k8": 0.8634403449928127, "cut_pages": 436}}
+The tokenizer class you load from this checkpoint is not the same type as the class this function is called from. It may result in unexpected tokenization. 
+The tokenizer class you load from this checkpoint is 'XLNetTokenizer'. 
+The class this function is called from is 'CompatTokenizer'.
+You are using a model of type xlnet to instantiate a model of type ernie_layout. This is not supported for all configurations of models and can yield errors.
+Some weights of ErnieLayoutForTokenClassification were not initialized from the model checkpoint at Norm/ERNIE-Layout-Pytorch and are newly initialized: ['classifier.bias', 'classifier.weight', 'ernie_layout.visual.backbone.batch_norm1.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.0.batch_norm1.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.0.batch_norm2.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.0.batch_norm3.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.0.shortcut.1.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.1.batch_norm1.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.1.batch_norm2.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.1.batch_norm3.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.2.batch_norm1.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.2.batch_norm2.num_batches_tracked', 'ernie_layout.visual.backbone.resnet.layer0.2.batch_norm3.num_batches_tracked']
+You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
+Token indices sequence length is longer than the specified maximum sequence length for this model (1281 > 512). Running this sequence through the model will result in indexing errors
+{"seed": 5, "train_windows": 2511, "tag": {"f1": 0.6652724395206874, "li_f1": 0.6707426185505517, "li_f1_headerless_pages": 0.7673448095983308, "headerless_pages": 23, "header_p": 0.8745258243361541, "header_r": 0.9800523217789405, "cut_li_f1_all": 0.8703229298213963, "cut_li_f1_k0": 0.8689587338489739, "cut_li_f1_k4": 0.8704460055546479, "cut_li_f1_k8": 0.8722448979591836, "cut_pages": 436}}
+wandb: updating run metadata
+wandb: uploading config.yaml; uploading output.log; uploading wandb-summary.json
+wandb: uploading history steps 4-4, summary, console lines 39-39
+wandb: 
+wandb: Run history:
+wandb:                 seed ▁▃▅▆█
+wandb:    tag/cut_li_f1_all ▂█▁▄▅
+wandb:     tag/cut_li_f1_k0 ▂█▁▄▅
+wandb:     tag/cut_li_f1_k4 ▂█▁▄▅
+wandb:     tag/cut_li_f1_k8 ▁█▁▄▆
+wandb:        tag/cut_pages ▁▁▁▁▁
+wandb:               tag/f1 ▅█▂▆▁
+wandb:         tag/header_p ▅███▁
+wandb:         tag/header_r ▅█▆▁▇
+wandb: tag/headerless_pages ▁▁▁▁▁
+wandb:                   +2 ...
+wandb: 
+wandb: Run summary:
+wandb:           minutes 45.5
+wandb:              seed 5
+wandb: tag/cut_li_f1_all 0.87032
+wandb:  tag/cut_li_f1_k0 0.86896
+wandb:  tag/cut_li_f1_k4 0.87045
+wandb:  tag/cut_li_f1_k8 0.87224
+wandb:     tag/cut_pages 436
+wandb:            tag/f1 0.66527
+wandb:      tag/header_p 0.87453
+wandb:      tag/header_r 0.98005
+wandb:                +3 ...
+wandb: 
+wandb: 🚀 View run 20261118T225538Z-table_header_prefix-6bc8be at: https://forge.coreweave.com/wandb/qbao775/layoutlmv3-pretraining/runs/v1wk742c
+wandb: ⭐️ View project at: https://forge.coreweave.com/wandb/qbao775/layoutlmv3-pretraining
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20261118_225540-v1wk742c/logs

@@ -1,0 +1,108 @@
+{
+ "args": {
+  "mode": "none",
+  "data": "/data/qbao775/datasets/realkie/fcc_invoices_pages_hdr_hf",
+  "model": "microsoft/layoutlmv3-base",
+  "family": "layoutlmv3",
+  "seeds": [
+   1,
+   2,
+   3,
+   4,
+   5
+  ],
+  "steps": 2000,
+  "lr": 3e-05,
+  "batch_size": 2,
+  "out": "results/table_header/cuts/v3_none.json",
+  "cuts": "/data/qbao775/datasets/realkie/fcc_invoices_pages_hdr_cuts_hf"
+ },
+ "runs": [
+  {
+   "seed": 1,
+   "train_windows": 2706,
+   "none": {
+    "f1": 0.6542912530106326,
+    "li_f1": 0.6737282916615347,
+    "li_f1_headerless_pages": 0.7261716692996314,
+    "headerless_pages": 23,
+    "header_p": 0.0,
+    "header_r": 0.0,
+    "cut_li_f1_all": 0.8500704149062941,
+    "cut_li_f1_k0": 0.8493482058863056,
+    "cut_li_f1_k4": 0.8516543317370483,
+    "cut_li_f1_k8": 0.8491863552801797,
+    "cut_pages": 436
+   }
+  },
+  {
+   "seed": 2,
+   "train_windows": 2706,
+   "none": {
+    "f1": 0.6625243385637384,
+    "li_f1": 0.6776605366294846,
+    "li_f1_headerless_pages": 0.7648431423386051,
+    "headerless_pages": 23,
+    "header_p": 0.0,
+    "header_r": 0.0,
+    "cut_li_f1_all": 0.8716508758899295,
+    "cut_li_f1_k0": 0.8705417303027582,
+    "cut_li_f1_k4": 0.8717108854678458,
+    "cut_li_f1_k8": 0.87326448259353,
+    "cut_pages": 436
+   }
+  },
+  {
+   "seed": 3,
+   "train_windows": 2706,
+   "none": {
+    "f1": 0.6785958446036322,
+    "li_f1": 0.6938737217374987,
+    "li_f1_headerless_pages": 0.7566844919786097,
+    "headerless_pages": 23,
+    "header_p": 0.0,
+    "header_r": 0.0,
+    "cut_li_f1_all": 0.870070193212244,
+    "cut_li_f1_k0": 0.8689723231507648,
+    "cut_li_f1_k4": 0.8719458987783595,
+    "cut_li_f1_k8": 0.8693930497712842,
+    "cut_pages": 436
+   }
+  },
+  {
+   "seed": 4,
+   "train_windows": 2706,
+   "none": {
+    "f1": 0.6618525607563366,
+    "li_f1": 0.6777323488130834,
+    "li_f1_headerless_pages": 0.750065980469781,
+    "headerless_pages": 23,
+    "header_p": 0.0,
+    "header_r": 0.0,
+    "cut_li_f1_all": 0.8568709828001005,
+    "cut_li_f1_k0": 0.8551324871966155,
+    "cut_li_f1_k4": 0.8567567567567567,
+    "cut_li_f1_k8": 0.8596622125754596,
+    "cut_pages": 436
+   }
+  },
+  {
+   "seed": 5,
+   "train_windows": 2706,
+   "none": {
+    "f1": 0.6622005684125051,
+    "li_f1": 0.6776283618581908,
+    "li_f1_headerless_pages": 0.7555209145232528,
+    "headerless_pages": 23,
+    "header_p": 0.0,
+    "header_r": 0.0,
+    "cut_li_f1_all": 0.8691078292534898,
+    "cut_li_f1_k0": 0.866882082555864,
+    "cut_li_f1_k4": 0.8687797849939045,
+    "cut_li_f1_k8": 0.872927406994566,
+    "cut_pages": 436
+   }
+  }
+ ],
+ "minutes": 42.9
+}
