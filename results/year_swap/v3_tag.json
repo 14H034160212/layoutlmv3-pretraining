@@ -1,0 +1,135 @@
+{
+ "args": {
+  "mode": "tag",
+  "data": "/data/qbao775/datasets/realkie/charities_swap_hdr_hf",
+  "model": "microsoft/layoutlmv3-base",
+  "family": "layoutlmv3",
+  "seeds": [
+   1,
+   2,
+   3,
+   4,
+   5
+  ],
+  "steps": 2000,
+  "lr": 3e-05,
+  "batch_size": 2,
+  "out": "results/year_swap/v3_tag.json",
+  "cuts": "/data/qbao775/datasets/realkie/charities_swap_cuts_hf",
+  "train_cuts": "/data/qbao775/datasets/realkie/charities_swap_train_cuts_hf",
+  "value_substr": "YEAR_END"
+ },
+ "runs": [
+  {
+   "seed": 1,
+   "train_windows": 1226,
+   "tag": {
+    "f1": 0.43066516347237876,
+    "li_f1": 0.43066516347237876,
+    "year_swap": 0.33547008547008544,
+    "li_f1_headerless_pages": 0.41025641025641024,
+    "headerless_pages": 17,
+    "header_p": 0.9674556213017751,
+    "header_r": 0.956140350877193,
+    "cut_li_f1_all": 0.43342776203966,
+    "cut_li_f1_k0": 0.43342776203966,
+    "cut_li_f1_swapped": 0.2647058823529412,
+    "cut_li_f1_unswapped": 0.5901639344262296,
+    "cut_pages": 123,
+    "cut_year_swap_all": 0.3814713896457766,
+    "cut_year_swap_k0": 0.3814713896457766,
+    "cut_year_swap_swapped": 0.5307262569832403,
+    "cut_year_swap_unswapped": 0.2393617021276596
+   }
+  },
+  {
+   "seed": 2,
+   "train_windows": 1226,
+   "tag": {
+    "f1": 0.4287396937573616,
+    "li_f1": 0.4287396937573616,
+    "year_swap": 0.3076923076923077,
+    "li_f1_headerless_pages": 0.5454545454545454,
+    "headerless_pages": 17,
+    "header_p": 0.95,
+    "header_r": 0.9444444444444444,
+    "cut_li_f1_all": 0.4180451127819549,
+    "cut_li_f1_k0": 0.4180451127819549,
+    "cut_li_f1_swapped": 0.3043478260869565,
+    "cut_li_f1_unswapped": 0.5247813411078718,
+    "cut_pages": 123,
+    "cut_year_swap_all": 0.34877384196185285,
+    "cut_year_swap_k0": 0.34877384196185285,
+    "cut_year_swap_swapped": 0.43575418994413406,
+    "cut_year_swap_unswapped": 0.26595744680851063
+   }
+  },
+  {
+   "seed": 3,
+   "train_windows": 1226,
+   "tag": {
+    "f1": 0.4379391100702576,
+    "li_f1": 0.4379391100702576,
+    "year_swap": 0.3055555555555556,
+    "li_f1_headerless_pages": 0.5555555555555556,
+    "headerless_pages": 17,
+    "header_p": 0.9475218658892128,
+    "header_r": 0.9502923976608187,
+    "cut_li_f1_all": 0.4199706314243759,
+    "cut_li_f1_k0": 0.4199706314243759,
+    "cut_li_f1_swapped": 0.18126888217522658,
+    "cut_li_f1_unswapped": 0.6457142857142858,
+    "cut_pages": 123,
+    "cut_year_swap_all": 0.34332425068119893,
+    "cut_year_swap_k0": 0.34332425068119893,
+    "cut_year_swap_swapped": 0.5363128491620112,
+    "cut_year_swap_unswapped": 0.1595744680851064
+   }
+  },
+  {
+   "seed": 4,
+   "train_windows": 1226,
+   "tag": {
+    "f1": 0.4139482564679414,
+    "li_f1": 0.4139482564679414,
+    "year_swap": 0.3525641025641026,
+    "li_f1_headerless_pages": 0.5194805194805195,
+    "headerless_pages": 17,
+    "header_p": 0.9337175792507204,
+    "header_r": 0.9473684210526315,
+    "cut_li_f1_all": 0.37482117310443486,
+    "cut_li_f1_k0": 0.37482117310443486,
+    "cut_li_f1_swapped": 0.27167630057803466,
+    "cut_li_f1_unswapped": 0.4759206798866855,
+    "cut_pages": 123,
+    "cut_year_swap_all": 0.4114441416893733,
+    "cut_year_swap_k0": 0.4114441416893733,
+    "cut_year_swap_swapped": 0.49162011173184356,
+    "cut_year_swap_unswapped": 0.3351063829787234
+   }
+  },
+  {
+   "seed": 5,
+   "train_windows": 1226,
+   "tag": {
+    "f1": 0.4523281596452329,
+    "li_f1": 0.4523281596452329,
+    "year_swap": 0.3418803418803419,
+    "li_f1_headerless_pages": 0.575,
+    "headerless_pages": 17,
+    "header_p": 0.9475218658892128,
+    "header_r": 0.9502923976608187,
+    "cut_li_f1_all": 0.4186704384724187,
+    "cut_li_f1_k0": 0.4186704384724187,
+    "cut_li_f1_swapped": 0.23054755043227662,
+    "cut_li_f1_unswapped": 0.6,
+    "cut_pages": 123,
+    "cut_year_swap_all": 0.4141689373297003,
+    "cut_year_swap_k0": 0.4141689373297003,
+    "cut_year_swap_swapped": 0.6033519553072626,
+    "cut_year_swap_unswapped": 0.23404255319148937
+   }
+  }
+ ],
+ "minutes": 23.8
+}

@@ -16,13 +16,16 @@ ap = argparse.ArgumentParser()
 ap.add_argument("--src", default="/data/qbao775/datasets/realkie/fcc_invoices_pages_hdr_hf")
 ap.add_argument("--out", default="/data/qbao775/datasets/realkie/fcc_invoices_pages_hdr_cuts_hf")
 ap.add_argument("--ks", type=int, nargs="+", default=[0, 4, 8])
+ap.add_argument("--value_substr", default="LINE_ITEM", help="labels containing this are the table values")
+ap.add_argument("--split", default="test")
+ap.add_argument("--min_lines", type=int, default=2, help="value lines needed below the header")
 args = ap.parse_args()
 
 ds = load_from_disk(args.src)
-t = ds["test"]
+t = ds[args.split]
 names = t.features["ner_tags"].feature.names
 hdr = names.index("B-TABLE_HEADER")
-li = {i for i, n in enumerate(names) if "LINE_ITEM" in n}
+li = {i for i, n in enumerate(names) if args.value_substr in n}
 rows = defaultdict(list)
 n_src = 0
 for i in range(len(t)):
@@ -39,13 +42,13 @@ for i in range(len(t)):
     for y in tops:                      # merge tops within 5 units into one line
         if not lines or y - lines[-1] > 5:
             lines.append(y)
-    if len(lines) < 2:
+    if len(lines) < args.min_lines:
         continue
     n_src += 1
     img = ex["image"].convert("RGB")
     W, H = img.size
     for k in args.ks:
-        if k >= len(lines) - 1:
+        if k > 0 and k >= len(lines) - 1:
             continue
         cut = bottom + 1 if k == 0 else lines[k] - 2
         keep = [j for j, b in enumerate(boxes) if b[1] >= cut]
@@ -61,8 +64,10 @@ for i in range(len(t)):
              [tags[j] for j in keep], page, 1)]):
             rows["doc"].append(did); rows["page"].append(p); rows["tokens"].append(w); rows["bboxes"].append(b)
             rows["ner_tags"].append(g); rows["image"].append(im); rows["cut"].append(c); rows["k"].append(k)
+            for extra in [f for f in t.features if f not in ("tokens", "bboxes", "ner_tags", "image", "doc", "page")]:
+                rows[extra].append(ex[extra])
 feats = t.features.copy()
 feats["cut"] = Value("int64"); feats["k"] = Value("int64")
 out = Dataset.from_dict(dict(rows), features=Features(feats))
 print("source pages", n_src, "cut pages", sum(rows["cut"]), {k: sum(1 for c, kk in zip(rows["cut"], rows["k"]) if c and kk == k) for k in args.ks})
-DatasetDict({"test": out}).save_to_disk(args.out)
+DatasetDict({args.split: out}).save_to_disk(args.out)

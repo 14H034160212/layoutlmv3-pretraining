@@ -191,8 +191,26 @@ def to_bio(seq, names, hdr_id):
     return [names[t] if t != hdr_id else "O" for t in seq]
 
 
+VALUE_SUBSTR = "LINE_ITEM"   # labels containing this are the table values (set by --value_substr)
+
+
+def only_values(seq):
+    return [x if VALUE_SUBSTR in x else "O" for x in seq]
+
+
+def year_swaps(g, p, names):
+    """Values whose CURRENT/PREVIOUS year was swapped (same field otherwise), and the number of values."""
+    swap = tot = 0
+    for a, c in zip(g, p):
+        if a and names[a].startswith("B-") and ("CURRENT" in names[a] or "PREVIOUS" in names[a]):
+            tot += 1
+            na, nc = names[a][2:], names[c][2:] if c else ""
+            swap += nc != na and nc.replace("CURRENT", "X").replace("PREVIOUS", "X") == na.replace("CURRENT", "X").replace("PREVIOUS", "X")
+    return swap, tot
+
+
 def scores(ds, preds, names, hdr_id):
-    li = {i for i, n in enumerate(names) if "LINE_ITEM" in n}
+    li = {i for i, n in enumerate(names) if VALUE_SUBSTR in n}
     y_true, y_pred, nh_true, nh_pred = [], [], [], []
     first_li_page = {}
     for doc in page_order(ds):
@@ -207,12 +225,13 @@ def scores(ds, preds, names, hdr_id):
         tp += sum(a == hdr_id and b == hdr_id for a, b in zip(g, p))
         fp += sum(a != hdr_id and b == hdr_id for a, b in zip(g, p))
         fn += sum(a == hdr_id and b != hdr_id for a, b in zip(g, p))
-        only_li = lambda s: [x if x.split("-", 1)[-1].startswith("LINE_ITEM") else "O" for x in s]  # noqa: E731
-        li_true.append(only_li(y_true[-1])); li_pred.append(only_li(y_pred[-1]))
+        li_true.append(only_values(y_true[-1])); li_pred.append(only_values(y_pred[-1]))
         doc = ds[i]["doc"]
         if any(t in li for t in g) and first_li_page.get(doc) != i and not any(t == hdr_id for t in g):
             nh_true.append(li_true[-1]); nh_pred.append(li_pred[-1])
-    return {"f1": f1_score(y_true, y_pred), "li_f1": f1_score(li_true, li_pred),
+    sw = [year_swaps(ds[i]["ner_tags"], p, names) for i, p in preds.items()]
+    swap_rate = sum(a for a, _ in sw) / max(sum(b for _, b in sw), 1)
+    return {"f1": f1_score(y_true, y_pred), "li_f1": f1_score(li_true, li_pred), "year_swap": swap_rate,
             "li_f1_headerless_pages": f1_score(nh_true, nh_pred) if nh_true else None, "headerless_pages": len(nh_true),
             "header_p": tp / max(tp + fp, 1), "header_r": tp / max(tp + fn, 1)}
 
@@ -220,14 +239,22 @@ def scores(ds, preds, names, hdr_id):
 def cut_scores(cds, preds, names, hdr_id):
     """Line-item F1 on synthetic headerless chunks (build_headerless_cuts.py), overall and per cut depth k."""
     groups = defaultdict(lambda: ([], []))
-    only_li = lambda s: [x if x.split("-", 1)[-1].startswith("LINE_ITEM") else "O" for x in s]  # noqa: E731
+    swaps = defaultdict(lambda: [0, 0])
+    has_swap_col = "swapped" in cds.column_names
     for i, p in preds.items():
         if not cds[i]["cut"]:
             continue
-        t, q = only_li(to_bio(cds[i]["ner_tags"], names, hdr_id)), only_li(to_bio(p, names, hdr_id))
-        for key in ("all", f"k{cds[i]['k']}"):
+        g = cds[i]["ner_tags"]
+        t, q = only_values(to_bio(g, names, hdr_id)), only_values(to_bio(p, names, hdr_id))
+        keys = ["all", f"k{cds[i]['k']}"] + ([("swapped" if cds[i]["swapped"] else "unswapped")] if has_swap_col else [])
+        sw, tot = year_swaps(g, p, names)
+        for key in keys:
             groups[key][0].append(t); groups[key][1].append(q)
-    return {f"cut_li_f1_{k}": f1_score(t, q) for k, (t, q) in sorted(groups.items())} | {"cut_pages": len(groups["all"][0])}
+            swaps[key][0] += sw; swaps[key][1] += tot
+    out = {f"cut_li_f1_{k}": f1_score(t, q) for k, (t, q) in sorted(groups.items())} | {"cut_pages": len(groups["all"][0])}
+    if swaps["all"][1]:
+        out |= {f"cut_year_swap_{k}": sw / tot for k, (sw, tot) in sorted(swaps.items()) if tot}
+    return out
 
 
 def run(args, seed, ds, names, hdr_id, device):
@@ -244,6 +271,8 @@ def run(args, seed, ds, names, hdr_id, device):
     enc = Encoder(processor, hdr_id)
     train_mode = "prefix" if args.mode in ("prefix", "oracle") else args.mode
     items = build_train(ds["train"], enc, train_mode, hdr_id)
+    if args.train_cuts:   # cut training pages (header removed), as pseudo-docs [full page, cut page]
+        items += build_train(load_from_disk(args.train_cuts)["train"], enc, train_mode, hdr_id)
     opt = torch.optim.AdamW(model.parameters(), lr=args.lr)
     sched = get_linear_schedule_with_warmup(opt, 0, args.steps)
     g = torch.Generator().manual_seed(seed)
@@ -283,7 +312,11 @@ def main():
     ap.add_argument("--batch_size", type=int, default=2)
     ap.add_argument("--out", required=True)
     ap.add_argument("--cuts", default=None, help="synthetic headerless chunks from build_headerless_cuts.py")
+    ap.add_argument("--train_cuts", default=None, help="build_headerless_cuts.py --split train output, added to training")
+    ap.add_argument("--value_substr", default="LINE_ITEM", help="labels containing this are the table values")
     args = ap.parse_args()
+    global VALUE_SUBSTR
+    VALUE_SUBSTR = args.value_substr
     ds = load_from_disk(args.data)
     names = ds["train"].features["ner_tags"].feature.names
     hdr_id = names.index("B-TABLE_HEADER")

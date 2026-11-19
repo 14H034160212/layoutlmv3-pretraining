@@ -1,0 +1,135 @@
+{
+ "args": {
+  "mode": "tag",
+  "data": "/data/qbao775/datasets/realkie/charities_swap_hdr_hf",
+  "model": "Norm/ERNIE-Layout-Pytorch",
+  "family": "ernie-layout",
+  "seeds": [
+   1,
+   2,
+   3,
+   4,
+   5
+  ],
+  "steps": 2000,
+  "lr": 3e-05,
+  "batch_size": 2,
+  "out": "results/year_swap/ernie_tag.json",
+  "cuts": "/data/qbao775/datasets/realkie/charities_swap_cuts_hf",
+  "train_cuts": "/data/qbao775/datasets/realkie/charities_swap_train_cuts_hf",
+  "value_substr": "YEAR_END"
+ },
+ "runs": [
+  {
+   "seed": 1,
+   "train_windows": 1231,
+   "tag": {
+    "f1": 0.4225028702640643,
+    "li_f1": 0.4225028702640643,
+    "year_swap": 0.31837606837606836,
+    "li_f1_headerless_pages": 0.430379746835443,
+    "headerless_pages": 17,
+    "header_p": 0.940677966101695,
+    "header_r": 0.9736842105263158,
+    "cut_li_f1_all": 0.42459736456808206,
+    "cut_li_f1_k0": 0.42459736456808206,
+    "cut_li_f1_swapped": 0.2345679012345679,
+    "cut_li_f1_unswapped": 0.5961002785515321,
+    "cut_pages": 123,
+    "cut_year_swap_all": 0.34877384196185285,
+    "cut_year_swap_k0": 0.34877384196185285,
+    "cut_year_swap_swapped": 0.5139664804469274,
+    "cut_year_swap_unswapped": 0.19148936170212766
+   }
+  },
+  {
+   "seed": 2,
+   "train_windows": 1231,
+   "tag": {
+    "f1": 0.4052443384982121,
+    "li_f1": 0.4052443384982121,
+    "year_swap": 0.31196581196581197,
+    "li_f1_headerless_pages": 0.3333333333333333,
+    "headerless_pages": 17,
+    "header_p": 0.9410112359550562,
+    "header_r": 0.97953216374269,
+    "cut_li_f1_all": 0.3815201192250372,
+    "cut_li_f1_k0": 0.3815201192250372,
+    "cut_li_f1_swapped": 0.17283950617283952,
+    "cut_li_f1_unswapped": 0.5763688760806918,
+    "cut_pages": 123,
+    "cut_year_swap_all": 0.3678474114441417,
+    "cut_year_swap_k0": 0.3678474114441417,
+    "cut_year_swap_swapped": 0.553072625698324,
+    "cut_year_swap_unswapped": 0.19148936170212766
+   }
+  },
+  {
+   "seed": 3,
+   "train_windows": 1231,
+   "tag": {
+    "f1": 0.4065420560747664,
+    "li_f1": 0.4065420560747664,
+    "year_swap": 0.32264957264957267,
+    "li_f1_headerless_pages": 0.4473684210526316,
+    "headerless_pages": 17,
+    "header_p": 0.9596541786743515,
+    "header_r": 0.9736842105263158,
+    "cut_li_f1_all": 0.41071428571428575,
+    "cut_li_f1_k0": 0.41071428571428575,
+    "cut_li_f1_swapped": 0.1943573667711599,
+    "cut_li_f1_unswapped": 0.6062322946175638,
+    "cut_pages": 123,
+    "cut_year_swap_all": 0.3542234332425068,
+    "cut_year_swap_k0": 0.3542234332425068,
+    "cut_year_swap_swapped": 0.5363128491620112,
+    "cut_year_swap_unswapped": 0.18085106382978725
+   }
+  },
+  {
+   "seed": 4,
+   "train_windows": 1231,
+   "tag": {
+    "f1": 0.4055299539170507,
+    "li_f1": 0.4055299539170507,
+    "year_swap": 0.33974358974358976,
+    "li_f1_headerless_pages": 0.4615384615384615,
+    "headerless_pages": 17,
+    "header_p": 0.9593023255813954,
+    "header_r": 0.9649122807017544,
+    "cut_li_f1_all": 0.3964757709251101,
+    "cut_li_f1_k0": 0.3964757709251101,
+    "cut_li_f1_swapped": 0.22424242424242424,
+    "cut_li_f1_unswapped": 0.5584045584045585,
+    "cut_pages": 123,
+    "cut_year_swap_all": 0.3760217983651226,
+    "cut_year_swap_k0": 0.3760217983651226,
+    "cut_year_swap_swapped": 0.5139664804469274,
+    "cut_year_swap_unswapped": 0.24468085106382978
+   }
+  },
+  {
+   "seed": 5,
+   "train_windows": 1231,
+   "tag": {
+    "f1": 0.4178082191780822,
+    "li_f1": 0.4178082191780822,
+    "year_swap": 0.31837606837606836,
+    "li_f1_headerless_pages": 0.4444444444444445,
+    "headerless_pages": 17,
+    "header_p": 0.9504373177842566,
+    "header_r": 0.9532163742690059,
+    "cut_li_f1_all": 0.40756914119359533,
+    "cut_li_f1_k0": 0.40756914119359533,
+    "cut_li_f1_swapped": 0.25825825825825827,
+    "cut_li_f1_unswapped": 0.5480225988700566,
+    "cut_pages": 123,
+    "cut_year_swap_all": 0.34877384196185285,
+    "cut_year_swap_k0": 0.34877384196185285,
+    "cut_year_swap_swapped": 0.49162011173184356,
+    "cut_year_swap_unswapped": 0.2127659574468085
+   }
+  }
+ ],
+ "minutes": 23.3
+}
